@@ -5,7 +5,9 @@ use utf8;
 
 use Getopt::Long qw(:config gnu_compat no_bundling no_ignore_case);
 use Pod::Usage;
-use File::Temp qw(tempfile);
+use File::Path qw(rmtree mkpath);
+use FileHandle;
+use Perl6::Slurp;
 
 
 sub usage () {
@@ -23,6 +25,15 @@ if (@ARGV == 0) {
     usage;
 }
 elsif (@ARGV == 1) {
+    my $file = shift;
+    my $archive_gz = slurp "tar zhcf - $file |";
+    rmtree $file;
+    mkpath $file;
+    chdir $file;
+    FileHandle->new('| tar zpxf -')->print($archive_gz);
+    system qw(git init);
+    system qw(git add .);
+    system qw(git commit -m hi);
 }
 else {
 }
