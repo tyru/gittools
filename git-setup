@@ -1,0 +1,43 @@
+#!/bin/sh
+
+usage() {
+    progname="`basename "$0"`"
+    cat <<EOM >&2
+USAGE
+    $progname {file}                    (1)
+    $progname {file} {repo dir}         (2)
+    $progname {file1}{file2} {repo dir} (3)
+
+SYNOPSIS
+    (1)
+
+    # create file/dir foo
+    $ vim foo
+
+    # create repo 'foo' and
+    # original 'foo' will be moved to 'foo/foo'.
+    $ $progname foo
+
+    (2)
+
+    # create file/dir foo
+    $ vim foo
+
+    # create repo 'foo' and
+    # original 'bar' will be moved to 'foo/bar'.
+    $ $progname bar foo
+
+    (3)
+
+    # create repo 'foo' and
+    $ vim foo
+
+    # create repo 'foo' and
+    # original 'bar', 'baz' will be moved
+    # to 'foo/bar', 'foo/baz'.
+    $ $progname bar baz foo
+EOM
+    exit 1
+}
+
+usage
