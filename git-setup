@@ -40,4 +40,27 @@ EOM
     exit 1
 }
 
-usage
+create_tempfile() {
+    file="`tempfile`"
+    trap "rm -f '$file'" 0 HUP INT QUIT TERM
+    echo "$file"
+}
+get_commit_msg() {
+    echo hi
+}
+
+
+case $# in
+    0) usage
+       ;;
+    1) file="`create_tempfile`"
+       tar zhcf - "$1" >"$file" || exit $?
+       rm -f "$1" || exit $?
+       mkdir "$1" || exit $?
+       cd "$1" || exit $?
+       tar zpxf - <"$file"
+       git init; git add .; git ci -m "`get_commit_msg`"
+       ;;
+    *) bar    # TODO
+       ;;
+esac
