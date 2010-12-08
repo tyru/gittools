@@ -41,7 +41,7 @@ EOM
 }
 
 create_tempfile() {
-    file="`tempfile`"
+    local file="`tempfile`"
     trap "rm -f '$file'" 0 HUP INT QUIT TERM
     echo "$file"
 }
