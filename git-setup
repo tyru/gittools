@@ -48,18 +48,21 @@ create_tempfile() {
 get_commit_msg() {
     echo hi
 }
+fatal() {
+    "$@" || exit $?
+}
 
 
 case $# in
     0) usage
        ;;
     1) file="`create_tempfile`"
-       tar zhcf - "$1" >"$file" || exit $?
-       rm -f "$1" || exit $?
-       mkdir "$1" || exit $?
-       cd "$1" || exit $?
-       tar zpxf - <"$file"
-       git init; git add .; git ci -m "`get_commit_msg`"
+       fatal tar zhcf - "$1" >"$file"
+       fatal rm -f "$1"
+       fatal mkdir "$1"
+       fatal cd "$1"
+       fatal tar zpxf - <"$file"
+       git init; git add .; git commit -m "`get_commit_msg`"
        ;;
     *) bar    # TODO
        ;;
