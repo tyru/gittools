@@ -23,10 +23,12 @@ sub git {
 my $needhelp;
 my $no_add_submodule;
 my $quiet;
+my $bare;
 GetOptions(
     'h|help' => \$needhelp,
     'S|no-add-submodule' => \$no_add_submodule,
     'q|quiet' => \$quiet,
+    'bare' => \$bare,
 ) or usage;
 usage if $needhelp;
 usage if @ARGV != 2;
@@ -44,7 +46,7 @@ die "You need to run this command from the toplevel of the working tree.\n"
 warn "cloning $wc_path into $repo_path...\n" unless $quiet;
 # Git.pm sets $GIT_WORK_TREE and git-clone refuses
 # to clone when the path $GIT_WORK_TREE exists...
-git qw(clone --quiet), $wc_path, $repo_path;
+git qw(clone --quiet), ($bare ? qw(--bare) : ()), $wc_path, $repo_path;
 # $repo->command_noisy('clone', $repo->wc_path, $repo_path);
 
 do {
