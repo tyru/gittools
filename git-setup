@@ -5,7 +5,7 @@ use utf8;
 
 use Getopt::Long qw(:config gnu_compat no_bundling no_ignore_case);
 use Pod::Usage;
-use File::Path qw(rmtree mkpath);
+use File::Path qw(remove_tree make_path);
 use FileHandle;
 use Perl6::Slurp;
 
@@ -18,8 +18,8 @@ sub main {
     my ($repo, @files) = @_;
 
     my $archive_gz = slurp "tar zhcf - @files |";
-    rmtree $repo;
-    mkpath $repo;
+    remove_tree $repo;
+    make_path $repo;
     chdir $repo;
     FileHandle->new('| tar zpxf -')->print($archive_gz);
     system qw(git init);
