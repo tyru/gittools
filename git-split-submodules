@@ -25,14 +25,20 @@ usage if @ARGV != 2;
 
 my ($path, $repo_path) = @ARGV;
 my $cwd = getcwd();
-my $repo = Git->repository($cwd);
+my $wc_path = Git->repository($cwd)->wc_path;
 
 die "$repo_path: destionation path '$repo_path' already exists.\n"
     if -e $repo_path;
 die "You need to run this command from the toplevel of the working tree.\n"
-    unless canonpath($repo->wc_path) eq canonpath($cwd);
+    unless canonpath($wc_path) eq canonpath($cwd);
 
+# Git.pm sets $GIT_WORK_TREE and git-clone refuses
+# to clone when the path $GIT_WORK_TREE exists...
+system 'git', 'clone', $wc_path, $repo_path;
+# $repo->command_noisy('clone', $repo->wc_path, $repo_path);
 
+chdir $repo_path;
+system qw(git filter-branch -f --subdirectory-filter), $path, 'HEAD';
 
 
 __END__
