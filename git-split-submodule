@@ -70,14 +70,14 @@ __END__
 
 =head1 NAME
 
-    git-split-submodules - split a path to indivisual repository (submodule).
+    git-split-submodule - split a path to indivisual repository (submodule).
 
 
 =head1 SYNOPSIS
 
-    $ git split-submodules path/from/top/repo /path/to/submodule
+    $ git split-submodule path/to/tree /path/to/submodule
 
-    # now 'path/from/top/repo' becomes submodule.
+    # now 'path/to/tree' becomes submodule.
     # and repository is at '/path/to/submodule'.
 
 =head1 AUTHOR
