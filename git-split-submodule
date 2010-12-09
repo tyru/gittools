@@ -73,12 +73,41 @@ __END__
     git-split-submodule - split a path to indivisual repository (submodule).
 
 
+=head1 USAGE
+
+    git split-submodule [OPTIONS] {tree path} {submodule path}
+
+
 =head1 SYNOPSIS
 
     $ git split-submodule path/to/tree /path/to/submodule
 
     # now 'path/to/tree' becomes submodule.
     # and repository is at '/path/to/submodule'.
+
+
+=head1 OPTIONS
+
+=over
+
+=item -h, --help
+
+Show this help.
+
+=item -S, --no-add-submodule
+
+Do not execute C<git submodule add {submodule path} {tree path}>.
+
+=item -q, --quiet
+
+Do not output verbose messages.
+
+=item --bare
+
+Pass --bare option to C<git-clone>.
+
+=back
+
 
 =head1 AUTHOR
 
