@@ -33,6 +33,7 @@ die "$repo_path: destionation path '$repo_path' already exists.\n"
 die "You need to run this command from the toplevel of the working tree.\n"
     unless canonpath($wc_path) eq canonpath($cwd);
 
+warn "cloning $wc_path into $repo_path...\n";
 # Git.pm sets $GIT_WORK_TREE and git-clone refuses
 # to clone when the path $GIT_WORK_TREE exists...
 system qw(git clone --quiet), $wc_path, $repo_path;
@@ -44,9 +45,11 @@ do {
     system qw(git filter-branch -f --subdirectory-filter), $path, 'HEAD';
 };
 
+warn "removing $path...\n";
 system qw(git rm -r --quiet), $path;
 # canonpath(): remove separater at the tail
 # to not add 'gitlink/'.
+warn "adding submodule $repo_path into $path...\n";
 system qw(git submodule --quiet add), $repo_path, canonpath($path);
 system qw(git commit --quiet -m), "split '$path' to another repository.";
 
