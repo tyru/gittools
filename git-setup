@@ -1,0 +1,97 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use utf8;
+
+use Getopt::Long qw(:config gnu_compat no_bundling no_ignore_case);
+use Pod::Usage;
+use File::Path qw(remove_tree make_path);
+use FileHandle;
+use Perl6::Slurp;
+
+
+sub usage () {
+    pod2usage(-verbose => 2);
+}
+
+sub main {
+    my ($repo, @files) = @_;
+
+    my $archive_gz = slurp "tar zhcf - @files |";
+    remove_tree @files;
+    remove_tree $repo;
+    make_path $repo;
+    chdir $repo;
+    FileHandle->new('| tar zpxf -')->print($archive_gz);
+    system qw(git init);
+    system qw(git add .);
+    system qw(git commit -m hi);
+}
+
+
+my $needhelp;
+GetOptions(
+    'h|help' => \$needhelp,
+) or usage;
+usage if $needhelp;
+
+if (@ARGV == 0) {
+    usage;
+}
+elsif (@ARGV == 1) {
+    main(@ARGV, @ARGV);
+}
+else {
+    my $repo = pop @ARGV;
+    main($repo, @ARGV);
+}
+
+
+
+__END__
+
+=head1 NAME
+
+    git-setup - set up git repository
+
+
+=head1 USAGE
+
+    git-setup {file}                    (1)
+    git-setup {file} {repo dir}         (2)
+    git-setup {file1}{file2} {repo dir} (3)
+
+=head1 SYNOPSIS
+
+    (1)
+
+    # Creates file/dir foo
+    $ vim foo
+
+    # Creates repo 'foo' and
+    # original 'foo' will be moved to 'foo/foo'.
+    $ git-setup foo
+
+    (2)
+
+    # Creates file/dir foo
+    $ vim foo
+
+    # Creates repo 'foo' and
+    # original 'bar' will be moved to 'foo/bar'.
+    $ git-setup bar foo
+
+    (3)
+
+    # Creates repo 'foo' and
+    $ vim foo
+
+    # Creates repo 'foo' and
+    # original 'bar', 'baz' will be moved
+    # to 'foo/bar', 'foo/baz'.
+    $ git-setup bar baz foo
+
+
+=head1 AUTHOR
+
+tyru <tyru.exe@gmail.com>
