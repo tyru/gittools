@@ -8,6 +8,7 @@ use Pod::Usage;
 use Git;
 use Cwd qw(getcwd);
 use File::Spec::Functions qw(canonpath);
+use Scope::Guard qw(guard);
 
 
 sub usage () {
@@ -37,8 +38,11 @@ die "You need to run this command from the toplevel of the working tree.\n"
 system 'git', 'clone', $wc_path, $repo_path;
 # $repo->command_noisy('clone', $repo->wc_path, $repo_path);
 
-chdir $repo_path;
-system qw(git filter-branch -f --subdirectory-filter), $path, 'HEAD';
+do {
+    my $g = guard { chdir $cwd };
+    chdir $repo_path;
+    system qw(git filter-branch -f --subdirectory-filter), $path, 'HEAD';
+};
 
 
 __END__
