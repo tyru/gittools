@@ -14,6 +14,19 @@ sub usage () {
     pod2usage(-verbose => 2);
 }
 
+sub main {
+    my ($repo, @files) = @_;
+
+    my $archive_gz = slurp "tar zhcf - @files |";
+    rmtree $repo;
+    mkpath $repo;
+    chdir $repo;
+    FileHandle->new('| tar zpxf -')->print($archive_gz);
+    system qw(git init);
+    system qw(git add .);
+    system qw(git commit -m hi);
+}
+
 
 my $needhelp;
 GetOptions(
@@ -25,27 +38,11 @@ if (@ARGV == 0) {
     usage;
 }
 elsif (@ARGV == 1) {
-    my $file = shift;
-    my $archive_gz = slurp "tar zhcf - $file |";
-    rmtree $file;
-    mkpath $file;
-    chdir $file;
-    FileHandle->new('| tar zpxf -')->print($archive_gz);
-    system qw(git init);
-    system qw(git add .);
-    system qw(git commit -m hi);
+    main(@ARGV, @ARGV);
 }
 else {
     my $repo = pop @ARGV;
-    my @files = @ARGV;
-    my $archive_gz = slurp "tar zhcf - @files |";
-    rmtree $repo;
-    mkpath $repo;
-    chdir $repo;
-    FileHandle->new('| tar zpxf -')->print($archive_gz);
-    system qw(git init);
-    system qw(git add .);
-    system qw(git commit -m hi);
+    main($repo, @ARGV);
 }
 
 
