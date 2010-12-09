@@ -27,7 +27,7 @@ my ($path, $repo_path) = @ARGV;
 my $cwd = getcwd();
 my $repo = Git->repository($cwd);
 
-die "$repo_path:$!\n"
+die "$repo_path: destionation path '$repo_path' already exists.\n"
     if -e $repo_path;
 die "You need to run this command from the toplevel of the working tree.\n"
     unless canonpath($repo->wc_path) eq canonpath($cwd);
