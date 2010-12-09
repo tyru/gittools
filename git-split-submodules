@@ -15,6 +15,10 @@ sub usage () {
     pod2usage(-verbose => 2);
 }
 
+sub git {
+    system 'git', @_;
+}
+
 
 my $needhelp;
 GetOptions(
@@ -36,22 +40,22 @@ die "You need to run this command from the toplevel of the working tree.\n"
 warn "cloning $wc_path into $repo_path...\n";
 # Git.pm sets $GIT_WORK_TREE and git-clone refuses
 # to clone when the path $GIT_WORK_TREE exists...
-system qw(git clone --quiet), $wc_path, $repo_path;
+git qw(clone --quiet), $wc_path, $repo_path;
 # $repo->command_noisy('clone', $repo->wc_path, $repo_path);
 
 do {
     my $g = guard { chdir $cwd };
     chdir $repo_path;
-    system qw(git filter-branch -f --subdirectory-filter), $path, 'HEAD';
+    git qw(filter-branch -f --subdirectory-filter), $path, 'HEAD';
 };
 
 warn "removing $path...\n";
-system qw(git rm -r --quiet), $path;
+git qw(rm -r --quiet), $path;
 # canonpath(): remove separater at the tail
 # to not add 'gitlink/'.
 warn "adding submodule $repo_path into $path...\n";
-system qw(git submodule --quiet add), $repo_path, canonpath($path);
-system qw(git commit --quiet -m), "split '$path' to another repository.";
+git qw(submodule --quiet add), $repo_path, canonpath($path);
+git qw(commit --quiet -m), "split '$path' to another repository.";
 
 
 __END__
