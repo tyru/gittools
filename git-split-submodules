@@ -35,7 +35,7 @@ die "You need to run this command from the toplevel of the working tree.\n"
 
 # Git.pm sets $GIT_WORK_TREE and git-clone refuses
 # to clone when the path $GIT_WORK_TREE exists...
-system 'git', 'clone', $wc_path, $repo_path;
+system qw(git clone --quiet), $wc_path, $repo_path;
 # $repo->command_noisy('clone', $repo->wc_path, $repo_path);
 
 do {
@@ -44,11 +44,11 @@ do {
     system qw(git filter-branch -f --subdirectory-filter), $path, 'HEAD';
 };
 
-system qw(git rm -r), $path;
+system qw(git rm -r --quiet), $path;
 # canonpath(): remove separater at the tail
 # to not add 'gitlink/'.
-system qw(git submodule add), $repo_path, canonpath($path);
-system qw(git commit -m), "split '$path' to another repository.";
+system qw(git submodule --quiet add), $repo_path, canonpath($path);
+system qw(git commit --quiet -m), "split '$path' to another repository.";
 
 
 __END__
