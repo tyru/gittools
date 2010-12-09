@@ -1,0 +1,83 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use utf8;
+
+use Getopt::Long qw(:config gnu_compat no_bundling no_ignore_case);
+use Pod::Usage;
+use Git;
+use Cwd qw(getcwd);
+use File::Spec::Functions qw(canonpath);
+use Scope::Guard qw(guard);
+
+
+sub usage () {
+    pod2usage(-verbose => 2);
+}
+
+sub git {
+    system 'git', @_;
+}
+
+
+my $needhelp;
+my $no_add_submodule;
+my $quiet;
+GetOptions(
+    'h|help' => \$needhelp,
+    'S|no-add-submodule' => \$no_add_submodule,
+    'q|quiet' => \$quiet,
+) or usage;
+usage if $needhelp;
+usage if @ARGV != 2;
+
+
+my ($path, $repo_path) = @ARGV;
+my $cwd = getcwd();
+my $wc_path = Git->repository($cwd)->wc_path;
+
+die "$repo_path: destionation path '$repo_path' already exists.\n"
+    if -e $repo_path;
+die "You need to run this command from the toplevel of the working tree.\n"
+    unless canonpath($wc_path) eq canonpath($cwd);
+
+warn "cloning $wc_path into $repo_path...\n" unless $quiet;
+# Git.pm sets $GIT_WORK_TREE and git-clone refuses
+# to clone when the path $GIT_WORK_TREE exists...
+git qw(clone --quiet), $wc_path, $repo_path;
+# $repo->command_noisy('clone', $repo->wc_path, $repo_path);
+
+do {
+    my $g = guard { chdir $cwd };
+    chdir $repo_path;
+    git qw(filter-branch -f --subdirectory-filter), $path, 'HEAD';
+};
+
+unless ($no_add_submodule) {
+    warn "removing $path...\n" unless $quiet;
+    git qw(rm -r --quiet), $path;
+    # canonpath(): remove separater at the tail
+    # to not add 'gitlink/'.
+    warn "adding submodule $repo_path into $path...\n" unless $quiet;
+    git qw(submodule --quiet add), $repo_path, canonpath($path);
+    git qw(commit --quiet -m), "split '$path' to another repository.";
+}
+
+
+__END__
+
+=head1 NAME
+
+    git-split-submodules - split a path to indivisual repository (submodule).
+
+
+=head1 SYNOPSIS
+
+    $ git split-submodules path/from/top/repo /path/to/submodule
+
+    # now 'path/from/top/repo' becomes submodule.
+    # and repository is at '/path/to/submodule'.
+
+=head1 AUTHOR
+
+tyru <tyru.exe@gmail.com>
