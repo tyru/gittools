@@ -21,8 +21,10 @@ sub git {
 
 
 my $needhelp;
+my $no_add_submodule;
 GetOptions(
     'h|help' => \$needhelp,
+    'S|no-add-submodule' => \$no_add_submodule,
 ) or usage;
 usage if $needhelp;
 usage if @ARGV != 2;
@@ -49,13 +51,15 @@ do {
     git qw(filter-branch -f --subdirectory-filter), $path, 'HEAD';
 };
 
-warn "removing $path...\n";
-git qw(rm -r --quiet), $path;
-# canonpath(): remove separater at the tail
-# to not add 'gitlink/'.
-warn "adding submodule $repo_path into $path...\n";
-git qw(submodule --quiet add), $repo_path, canonpath($path);
-git qw(commit --quiet -m), "split '$path' to another repository.";
+unless ($no_add_submodule) {
+    warn "removing $path...\n";
+    git qw(rm -r --quiet), $path;
+    # canonpath(): remove separater at the tail
+    # to not add 'gitlink/'.
+    warn "adding submodule $repo_path into $path...\n";
+    git qw(submodule --quiet add), $repo_path, canonpath($path);
+    git qw(commit --quiet -m), "split '$path' to another repository.";
+}
 
 
 __END__
