@@ -57,9 +57,9 @@ __END__
 
 =head1 USAGE
 
-    git-setup {file}                    (1)
-    git-setup {file} {repo dir}         (2)
-    git-setup {file1}{file2} {repo dir} (3)
+    git-setup [OPTIONS] {file}                    (1)
+    git-setup [OPTIONS] {file} {repo dir}         (2)
+    git-setup [OPTIONS] {file1}{file2} {repo dir} (3)
 
 =head1 SYNOPSIS
 
@@ -90,6 +90,17 @@ __END__
     # original 'bar', 'baz' will be moved
     # to 'foo/bar', 'foo/baz'.
     $ git setup bar baz foo
+
+
+=head1 OPTIONS
+
+=over
+
+=item -h, --help
+
+Show this help.
+
+=back
 
 
 =head1 AUTHOR
