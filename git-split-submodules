@@ -44,6 +44,12 @@ do {
     system qw(git filter-branch -f --subdirectory-filter), $path, 'HEAD';
 };
 
+system qw(git rm -r), $path;
+# canonpath(): remove separater at the tail
+# to not add 'gitlink/'.
+system qw(git submodule add), $repo_path, canonpath($path);
+system qw(git commit -m), "split '$path' to another repository.";
+
 
 __END__
 
