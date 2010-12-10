@@ -51,6 +51,22 @@ __END__
 
 =head1 OPTIONS
 
+=over
+
+=item -h, --help
+
+Show this help.
+
+=item -S, --no-summary
+
+Do not show the summary of C<git submodule summary>.
+
+=item -P, --no-pager
+
+Do not pipe pager.
+
+=back
+
 
 =head1 AUTHOR
 
