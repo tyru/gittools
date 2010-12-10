@@ -25,10 +25,14 @@ usage if $needhelp;
 
 die "You need to run this command from the toplevel of the working tree.\n"
     if qx(git rev-parse --show-cdup) =~ /\S/;
+
+my $previous_summary = qx(git submodule summary);
 system qw(git submodule foreach), 'git pull origin master; true';
-unless ($no_summary) {
+my $current_summary = qx(git submodule summary);
+
+if (!$no_summary && $previous_summary ne $current_summary && $current_summary ne '') {
     local *STDOUT = $no_pager ? *STDOUT : IO::Pager::open *STDOUT;
-    print qx(git submodule summary);
+    print $current_summary;
 }
 
 __END__
