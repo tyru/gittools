@@ -14,9 +14,11 @@ sub usage () {
 
 my $needhelp;
 my $no_summary;
+my $no_pager;
 GetOptions(
     'h|help' => \$needhelp,
     'S|no-summary' => \$no_summary,
+    'P|no-pager' => \$no_pager,
 ) or usage;
 usage if $needhelp;
 
@@ -25,7 +27,7 @@ die "You need to run this command from the toplevel of the working tree.\n"
     if qx(git rev-parse --show-cdup) =~ /\S/;
 system qw(git submodule foreach), 'git pull origin master; true';
 unless ($no_summary) {
-    local *STDOUT = IO::Pager::open *STDOUT;
+    local *STDOUT = $no_pager ? *STDOUT : IO::Pager::open *STDOUT;
     print qx(git submodule summary);
 }
 
