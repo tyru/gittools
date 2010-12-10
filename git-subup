@@ -5,6 +5,7 @@ use utf8;
 
 use Getopt::Long qw(:config gnu_compat no_bundling no_ignore_case);
 use Pod::Usage;
+use IO::Pager;
 
 sub usage () {
     pod2usage(-verbose => 2);
@@ -24,7 +25,8 @@ die "You need to run this command from the toplevel of the working tree.\n"
     if qx(git rev-parse --show-cdup) =~ /\S/;
 system qw(git submodule foreach), 'git pull origin master; true';
 unless ($no_summary) {
-    system q(git submodule summary | less);
+    local *STDOUT = IO::Pager::open *STDOUT;
+    print qx(git submodule summary);
 }
 
 __END__
