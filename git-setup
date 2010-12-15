@@ -17,15 +17,23 @@ sub usage () {
 sub main {
     my ($repo, @files) = @_;
 
-    my $archive_gz = slurp "tar zhcf - @files |";
-    remove_tree @files;
-    remove_tree $repo;
-    make_path $repo;
-    chdir $repo;
-    FileHandle->new('| tar zpxf -')->print($archive_gz);
-    system qw(git init);
-    system qw(git add .);
-    system qw(git commit -m hi);
+    if (@files) {
+        my $archive_gz = slurp "tar zhcf - @files |";
+        remove_tree @files;
+        remove_tree $repo;
+        make_path $repo;
+        chdir $repo;
+        FileHandle->new('| tar zpxf -')->print($archive_gz);
+        system qw(git init);
+        system qw(git add .);
+        system qw(git commit -m hi);
+    }
+    else {
+        remove_tree $repo;
+        make_path $repo;
+        chdir $repo;
+        system qw(git init);
+    }
 }
 
 
@@ -39,7 +47,8 @@ if (@ARGV == 0) {
     usage;
 }
 elsif (@ARGV == 1) {
-    main(@ARGV, @ARGV);
+    my $path = shift;
+    -e $path ? main($path, $path) : main($path);
 }
 else {
     my $repo = pop @ARGV;
@@ -69,8 +78,9 @@ __END__
     # Creates file/dir foo
     $ vim foo
 
-    # Creates repo 'foo' and
-    # original 'foo' will be moved to 'foo/foo'.
+    # Creates repo 'foo'
+    # and If 'foo' exists,
+    # it is moved to 'foo/foo'.
     $ git setup foo
 
     (2)
