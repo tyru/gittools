@@ -68,7 +68,7 @@ Show this help.
 =item --no-progress
 
 Do not show the progress messages of C<git-fetch>.
-See C<git-fetch>'s --quiet option.
+See C<git-fetch>'s C<--quiet> option.
 Note that C<--no-progress> affects to C<git submodule foreach> output.
 --no-progress passes C<--quiet> to C<git submodule foreach>.
 
