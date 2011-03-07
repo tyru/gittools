@@ -34,6 +34,7 @@ my $previous_summary = qx(git submodule summary);
 system
     qw(git submodule foreach),
     ($recursively ? qw(--recursive) : ()),
+    ($no_progress ? qw(--quiet) : ()),
     'git pull ' . ($no_progress ? '--quiet' : '') . ' origin master; true';
 my $current_summary = qx(git submodule summary);
 
@@ -68,6 +69,8 @@ Show this help.
 
 Do not show the progress messages of C<git-fetch>.
 See C<git-fetch>'s --quiet option.
+Note that C<--no-progress> affects to C<git submodule foreach> output.
+--no-progress passes C<--quiet> to C<git submodule foreach>.
 
 =item -S, --no-summary
 
