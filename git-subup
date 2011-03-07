@@ -15,10 +15,12 @@ sub usage () {
 my $needhelp;
 my $no_summary;
 my $no_pager;
+my $recursively;
 GetOptions(
     'h|help' => \$needhelp,
     'S|no-summary' => \$no_summary,
     'P|no-pager' => \$no_pager,
+    'r|recursive' => \$recursively,
 ) or usage;
 usage if $needhelp;
 
@@ -27,7 +29,10 @@ die "You need to run this command from the toplevel of the working tree.\n"
     if qx(git rev-parse --show-cdup) =~ /\S/;
 
 my $previous_summary = qx(git submodule summary);
-system qw(git submodule foreach), 'git pull origin master; true';
+system
+    qw(git submodule foreach),
+    ($recursively ? qw(--recursive) : ()),
+    'git pull origin master; true';
 my $current_summary = qx(git submodule summary);
 
 if (!$no_summary
@@ -64,6 +69,11 @@ Do not show the summary of C<git submodule summary>.
 =item -P, --no-pager
 
 Do not pipe pager.
+
+=item -r, --recursive
+
+Do update nested submodules.
+See C<git-submodule>'s --recursive option.
 
 =back
 
