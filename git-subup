@@ -16,8 +16,10 @@ my $needhelp;
 my $no_summary;
 my $no_pager;
 my $recursively;
+my $no_progress;
 GetOptions(
     'h|help' => \$needhelp,
+    'no-progress' => \$no_progress,
     'S|no-summary' => \$no_summary,
     'P|no-pager' => \$no_pager,
     'r|recursive' => \$recursively,
@@ -32,7 +34,7 @@ my $previous_summary = qx(git submodule summary);
 system
     qw(git submodule foreach),
     ($recursively ? qw(--recursive) : ()),
-    'git pull origin master; true';
+    'git pull ' . ($no_progress ? '--quiet' : '') . ' origin master; true';
 my $current_summary = qx(git submodule summary);
 
 if (!$no_summary
@@ -61,6 +63,11 @@ __END__
 =item -h, --help
 
 Show this help.
+
+=item --no-progress
+
+Do not show the progress messages of C<git-fetch>.
+See C<git-fetch>'s --quiet option.
 
 =item -S, --no-summary
 
