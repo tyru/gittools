@@ -36,8 +36,8 @@ system
 my $current_summary = qx(git submodule summary);
 
 if (!$no_summary
-    && $previous_summary ne $current_summary
-    && $current_summary ne '')
+    && $current_summary ne ''
+    && $previous_summary ne $current_summary)
 {
     local *STDOUT = $no_pager ? *STDOUT : IO::Pager::open *STDOUT;
     print $current_summary;
