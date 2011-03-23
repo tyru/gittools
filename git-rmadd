@@ -1,0 +1,6 @@
+#!/bin/sh
+
+if [ $# -ne 0 ]; then
+    git rm --cached -r "$1"
+    git add "$1"
+fi
