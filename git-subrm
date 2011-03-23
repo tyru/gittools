@@ -1,0 +1,20 @@
+#!/bin/sh
+# via http://labs.timedia.co.jp/2011/03/git-removing-a-submodule.html
+
+if [ ! -z "`git rev-parse --show-cdup`" ]; then
+    echo "error: git-submodule can be run at top level of repository." >&2
+    exit 1
+fi
+if [ ! -z "`git diff HEAD -- .gitmodules`" ]; then
+    echo "error: .gitmodules is dirty. please commit or junk its hunk." >&2
+    exit 1
+fi
+if [ $# -eq 0 ]; then
+    echo "Usage: $(basename $0) {submodule}" >&2
+    exit 1
+fi
+name="$1"
+
+git rm --cached `git config --file .gitmodules --get submodule.$name.path`
+git config --file .gitmodules --remove-section submodule.$name
+git add .gitmodules
