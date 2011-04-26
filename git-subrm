@@ -10,11 +10,12 @@ if [ ! -z "`git diff HEAD -- .gitmodules`" ]; then
     exit 1
 fi
 if [ $# -eq 0 ]; then
-    echo "Usage: $(basename $0) {submodule}" >&2
+    echo "Usage: $(basename $0) {submodule1} [{submodule2} ...]" >&2
     exit 1
 fi
-name="$1"
 
-git rm --cached `git config --file .gitmodules --get submodule.$name.path`
-git config --file .gitmodules --remove-section submodule.$name
-git add .gitmodules
+for name in "$@"; do
+    git rm --cached `git config --file .gitmodules --get submodule.$name.path`
+    git config --file .gitmodules --remove-section submodule.$name
+    git add .gitmodules
+done
