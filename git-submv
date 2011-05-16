@@ -39,12 +39,21 @@ case $# in
 esac
 validate "$src" "$dest" "$dest_url"
 
-set -e
 # git-subrm exits with non-zero status
 # when .gitmodules is dirty.
-git subrm --quiet "$src"
-mv "$src" "$dest"
-# Ignore "Adding existing repo at 'foo' to the index" message.
-git submodule --quiet add "$dest_url" "$dest" 2>/dev/null || true
+set -e
+if [ "`ls $src`" ]; then
+    # Non-empty repository.
+    # ("git submodule update --init" was performed)
+    # Remove repo directory and clone $dest_url repository.
+    git subrm --quiet "$src"
+    git submodule --quiet add "$dest_url" "$dest"
+else
+    # Empty repositry. Just rewrite .gitmodules.
+    git subrm --quiet --cached "$src"
+    mv "$src" "$dest"
+    # Ignore "Adding existing repo at 'foo' to the index" message.
+    git submodule --quiet add "$dest_url" "$dest" 2>/dev/null || true
+fi
 
 echo "Successfully renamed '$src' to '$dest' ($dest_url)."
