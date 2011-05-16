@@ -16,16 +16,29 @@ fi
 
 
 quiet=
-if [ "$1" = "--quiet" ]; then
-    quiet="--quiet"
+cached=
+while [ $# -ne 0 ]; do
+    case "$1" in
+        --quiet)
+            quiet="--quiet"
+            ;;
+        --cached)
+            cached="--cached"
+            ;;
+        *)
+            break 2
+            ;;
+    esac
     shift
-fi
+done
 
 set -e
 for name in "$@"; do
     path="`git config --file .gitmodules --get submodule.$name.path`"
     git rm $quiet --cached "$path"
-    rm -rf "$path"
+    if [ -z "$cached" ]; then
+        rm -rf "$path"
+    fi
     git config --file .gitmodules --remove-section submodule.$name
     git add .gitmodules
 done
