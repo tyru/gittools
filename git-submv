@@ -1,0 +1,50 @@
+#!/bin/sh
+
+src=
+dest=
+dest_url=
+
+die() {
+    echo "$@" >&2
+    exit 1
+}
+get_dest_url() {
+    src="$1"
+    git config -f .git/config --get submodule."$src".url
+}
+validate() {
+    src="$1"
+    dest="$2"
+    dest_url="$3"
+
+    [ -d "$src" ]        || die "error: source submodule '$src' does not exist."
+    [ ! -e "$dest" ]     || die "error: destination path '$dest' exist."
+    [ ! -z "$dest_url" ] || die "error: destination submodule url is empty."
+}
+
+case $# in
+    2)
+        src="$1"
+        dest="$2"
+        dest_url="`get_dest_url "$src"`"
+        ;;
+    3)
+        src="$1"
+        dest="$2"
+        dest_url="$3"
+        ;;
+    *)
+        die "Usage: git submv {src} {dest} [{dest-url}]"
+        ;;
+esac
+validate "$src" "$dest" "$dest_url"
+
+set -e
+# git-subrm exits with non-zero status
+# when .gitmodules is dirty.
+git subrm --quiet "$src"
+mv "$src" "$dest"
+# Ignore "Adding existing repo at 'foo' to the index" message.
+git submodule --quiet add "$dest_url" "$dest" 2>/dev/null || true
+
+echo "Successfully renamed '$src' to '$dest' ($dest_url)."
