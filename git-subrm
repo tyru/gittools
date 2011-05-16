@@ -21,6 +21,7 @@ if [ "$1" = "--quiet" ]; then
     shift
 fi
 
+set -e
 for name in "$@"; do
     git rm $quiet --cached `git config --file .gitmodules --get submodule.$name.path`
     git config --file .gitmodules --remove-section submodule.$name
