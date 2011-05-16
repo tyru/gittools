@@ -14,8 +14,15 @@ if [ $# -eq 0 ]; then
     exit 1
 fi
 
+
+quiet=
+if [ "$1" = "--quiet" ]; then
+    quiet="--quiet"
+    shift
+fi
+
 for name in "$@"; do
-    git rm --cached `git config --file .gitmodules --get submodule.$name.path`
+    git rm $quiet --cached `git config --file .gitmodules --get submodule.$name.path`
     git config --file .gitmodules --remove-section submodule.$name
     git add .gitmodules
 done
