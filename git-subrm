@@ -34,11 +34,13 @@ done
 
 set -e
 for name in "$@"; do
+    # git-rm
     path="`git config --file .gitmodules --get submodule.$name.path`"
     git rm $quiet --cached "$path"
     if [ -z "$cached" ]; then
         rm -rf "$path"
     fi
+    # .gitmodules
     git config --file .gitmodules --remove-section submodule.$name
     git add .gitmodules
 done
