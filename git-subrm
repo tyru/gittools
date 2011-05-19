@@ -35,7 +35,11 @@ done
 set -e
 for name in "$@"; do
     # git-rm
-    path="`git config --file .gitmodules --get submodule.$name.path`"
+    path="`git config --file .gitmodules --get submodule.$name.path || true`"
+    if [ -z "$path" ]; then
+        echo "warning: submodule '$name' is unknown. skip." >&2
+        continue
+    fi
     git rm $quiet --cached "$path"
     if [ -z "$cached" ]; then
         rm -rf "$path"
