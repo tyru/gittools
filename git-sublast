@@ -1,0 +1,14 @@
+#!/bin/sh
+
+pager() {
+    for p in "`git config --get core.pager`" "$PAGER" "less" "cat"; do
+        if [ -x "`which "$p" 2>/dev/null`" ]; then
+            echo "$p"
+            return
+        fi
+    done
+    echo "error: could not find pager program." >&2
+    exit 1 # Someone must have performed `rm -rf /`.
+}
+p="`pager`" # Find pager program at first.
+git submodule summary | "$p"
