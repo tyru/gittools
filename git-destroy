@@ -37,6 +37,7 @@ ready_to_destroy() {
         warn "warning: branch is not only master."
         $not_ready
     fi
+    # TODO: Check if there is unpushed commits
 
     $ready
 }
