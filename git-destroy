@@ -43,10 +43,12 @@ ready_to_destroy() {
 
 # Parse arguments
 check_only=false
+quiet=false
 while [ $# -ne 0 ]; do
     case "$1" in
         --help) shift; break ;;
         --check-only) check_only=true ;;
+        -q|--quiet) quiet=true ;;
 
         --) shift; break ;;
         -*) echo "Unrecognized option: $1" >&2; exit 2 ;;
@@ -63,6 +65,25 @@ for repo in "$@"; do
         warn "$repo: No such directory"
         continue
     fi
-    (cd "$repo" && ready_to_destroy) || continue
-    $check_only || rm -fr "$repo"
+
+    (cd "$repo" && ready_to_destroy)
+    exit_code=$?
+
+    if $check_only; then
+        # Tell if $repo is clean repository (--check-only)
+        if $quiet; then
+            # Tell by return code (--quiet)
+            # Of course you cannot check multiple $repo
+            # if --quiet was given.
+            exit $exit_code
+        else
+            if [ $exit_code -eq 0 ]; then
+                echo "$repo: ok"
+            else
+                echo "$repo: not ok: Check commits, stashes, branches, etc."
+            fi
+        fi
+    else
+        rm -fr "$repo"
+    fi
 done
