@@ -1,4 +1,7 @@
 #!/bin/sh
+#
+# git-destroy - Remove repository's directory safely.
+#
 
 is_dirty() {
     if [ -z "`git diff`" ]; then
