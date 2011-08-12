@@ -14,32 +14,30 @@ is_git_repo() {
     return 0 # TODO
 }
 ready_to_destroy() {
-    ready='return 0'
-    not_ready='return 1'
 
     if ! is_git_repo; then
         warn "warning: Not a git repository."
-        $not_ready
+        return 1
     fi
     if [ "`git show 2>&1 >/dev/null`" = "fatal: bad default revision 'HEAD'" ]; then
         warn "warning: empty repository."
-        $ready
+        return 0
     fi
     if [ "`git diff`" ]; then
         warn "warning: dirty working tree."
-        $not_ready
+        return 2
     fi
     if [ "`git stash list`" ]; then
         warn "warning: 'git stash list' is not empty."
-        $not_ready
+        return 3
     fi
     if [ "`git branch | egrep -v '^[* ] master$'`" ]; then
         warn "warning: branch is not only master."
-        $not_ready
+        return 4
     fi
     # TODO: Check if there is unpushed commits
 
-    $ready
+    return 0
 }
 
 
