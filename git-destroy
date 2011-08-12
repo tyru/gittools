@@ -79,7 +79,7 @@ for repo in "$@"; do
             if [ $exit_code -eq 0 ]; then
                 echo "$repo: ok"
             else
-                echo "$repo: not ok: Check commits, stashes, branches, etc."
+                echo "$repo: not ok: Check commits, stashes, branches, and so on."
             fi
         fi
     else
