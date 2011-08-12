@@ -3,38 +3,67 @@
 # git-destroy - Remove repository's directory safely.
 #
 
-is_dirty() {
-    if [ -z "`git diff`" ]; then
-        return $false
-    else
-        return $true
-    fi
+warn() {
+    echo "$@" >&2
+}
+die() {
+    echo "$@" >&2
+    exit 1
+}
+is_git_repo() {
+    return 0 # TODO
 }
 cleanup() {
-    if is_dirty; then
-        echo 'failed to clean up: dirty working tree.' >&2
+    repo="$1"
+    failmsg="failed to clean up '$repo'"
+
+    if ! is_git_repo; then
+        warn "$failmsg: Not a git repository."
+        return 1
+    fi
+    if [ "`git show 2>&1 >/dev/null`" = "fatal: bad default revision 'HEAD'" ]; then
+        warn "$failmsg: empty repository."
+        return 1
+    fi
+    if [ "`git diff`" ]; then
+        warn "$failmsg: dirty working tree."
         return 1
     fi
     if [ "`git stash list`" ]; then
-        echo 'failed to clean up: `git stash list` is not empty.' >&2
-        return 2
+        warn "$failmsg: 'git stash list' is not empty."
+        return 1
     fi
     if [ "`git branch | egrep -v '^[* ] master$'`" ]; then
-        echo 'failed to clean up: branch is not only master.' >&2
-        return 3
+        warn "$failmsg: branch is not only master."
+        return 1
     fi
+
     return 0
 }
 
 
-if [ $# -eq 0 ]; then
-    echo "Usage: $(basename $0) {repodir}" >&2
-    exit 1
-fi
-repo="$1"
+# Parse arguments
+cleanup_only=false
+while [ $# -ne 0 ]; do
+    case "$1" in
+        --help) shift; break ;;
+        --cleanup-only) cleanup_only=true ;;
 
-if [ ! -d "$repo" ]; then
-    echo "$repo: No such directory" >&2
-    exit 2
-fi
-(cd "$repo" && cleanup) && rm -fr $repo
+        --) shift; break ;;
+        -*) echo "Unrecognized option: $1" >&2; exit 2 ;;
+        *)  break ;;
+    esac
+    shift
+done
+[ $# -eq 0 ] && die "Usage: $(basename $0) {repodir}"
+
+
+# Main
+for repo in "$@"; do
+    if [ ! -d "$repo" ]; then
+        warn "$repo: No such directory"
+        continue
+    fi
+    (cd "$repo" && cleanup "$repo")
+    $cleanup_only || rm -fr "$repo"
+done
