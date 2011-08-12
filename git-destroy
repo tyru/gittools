@@ -46,7 +46,6 @@ check_only=false
 quiet=false
 while [ $# -ne 0 ]; do
     case "$1" in
-        --help) shift; break ;;
         --check-only) check_only=true ;;
         -q|--quiet) quiet=true ;;
 
