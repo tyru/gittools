@@ -3,6 +3,11 @@
 # git-destroy - Remove repository's directory safely.
 #
 
+
+usage() {
+    die "Usage: $(basename $0) {repodir}"
+    # TODO: Description about options, arguments, and so on.
+}
 warn() {
     echo "$@" >&2
 }
@@ -55,7 +60,7 @@ while [ $# -ne 0 ]; do
     esac
     shift
 done
-[ $# -eq 0 ] && die "Usage: $(basename $0) {repodir}"
+[ $# -eq 0 ] && usage
 
 
 # Main
