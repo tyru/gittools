@@ -86,3 +86,4 @@ for repo in "$@"; do
         rm -fr "$repo"
     fi
 done
+exit 0
