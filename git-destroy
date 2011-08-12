@@ -37,4 +37,4 @@ if [ ! -d "$repo" ]; then
     echo "$repo: No such directory" >&2
     exit 2
 fi
-(cd "$repo" && cleanup) && rm $repo
+(cd "$repo" && cleanup) && rm -fr $repo
