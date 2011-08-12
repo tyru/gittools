@@ -13,41 +13,41 @@ die() {
 is_git_repo() {
     return 0 # TODO
 }
-cleanup() {
-    repo="$1"
-    failmsg="failed to clean up '$repo'"
+ready_to_destroy() {
+    ready='return 0'
+    not_ready='return 1'
 
     if ! is_git_repo; then
-        warn "$failmsg: Not a git repository."
-        return 1
+        warn "warning: Not a git repository."
+        $not_ready
     fi
     if [ "`git show 2>&1 >/dev/null`" = "fatal: bad default revision 'HEAD'" ]; then
-        warn "$failmsg: empty repository."
-        return 1
+        warn "warning: empty repository."
+        $ready
     fi
     if [ "`git diff`" ]; then
-        warn "$failmsg: dirty working tree."
-        return 1
+        warn "warning: dirty working tree."
+        $not_ready
     fi
     if [ "`git stash list`" ]; then
-        warn "$failmsg: 'git stash list' is not empty."
-        return 1
+        warn "warning: 'git stash list' is not empty."
+        $not_ready
     fi
     if [ "`git branch | egrep -v '^[* ] master$'`" ]; then
-        warn "$failmsg: branch is not only master."
-        return 1
+        warn "warning: branch is not only master."
+        $not_ready
     fi
 
-    return 0
+    $ready
 }
 
 
 # Parse arguments
-cleanup_only=false
+check_only=false
 while [ $# -ne 0 ]; do
     case "$1" in
         --help) shift; break ;;
-        --cleanup-only) cleanup_only=true ;;
+        --check-only) check_only=true ;;
 
         --) shift; break ;;
         -*) echo "Unrecognized option: $1" >&2; exit 2 ;;
@@ -64,6 +64,6 @@ for repo in "$@"; do
         warn "$repo: No such directory"
         continue
     fi
-    (cd "$repo" && cleanup "$repo")
-    $cleanup_only || rm -fr "$repo"
+    (cd "$repo" && ready_to_destroy) || continue
+    $check_only || rm -fr "$repo"
 done
