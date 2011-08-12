@@ -10,7 +10,11 @@ if [ ! -z "`git diff HEAD -- .gitmodules`" ]; then
     exit 1
 fi
 if [ $# -eq 0 ]; then
-    echo "Usage: $(basename $0) {submodule1} [{submodule2} ...]" >&2
+    progname="`basename $0`"
+    cat <<EOM
+$progname - Remove submodule easily
+Usage: $progname {submodule1} [{submodule2} ...]
+EOM
     exit 1
 fi
 

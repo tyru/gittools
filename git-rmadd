@@ -1,7 +1,11 @@
 #!/bin/sh
 
 if [ $# -eq 0 ]; then
-    echo "Usage: $(basename $0) {dir_or_file}" >&2
+    progname="`basename $0`"
+    cat <<EOM
+$progname - Just almost same as 'git-rm {arg}; git-add {arg}'
+Usage: $progname {dir_or_file}
+EOM
     exit 1
 fi
 

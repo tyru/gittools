@@ -4,6 +4,13 @@ src=
 dest=
 dest_url=
 
+usage() {
+    progname="`basename $0`"
+    cat <<EOM
+$progname - Rename submodule easily
+Usage: $progname {src} {dest} [{dest-url}]
+EOM
+}
 die() {
     echo "$@" >&2
     exit 1
@@ -34,7 +41,7 @@ case $# in
         dest_url="$3"
         ;;
     *)
-        die "Usage: git submv {src} {dest} [{dest-url}]"
+        usage
         ;;
 esac
 validate "$src" "$dest" "$dest_url"

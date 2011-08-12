@@ -1,12 +1,14 @@
 #!/bin/sh
-#
-# git-destroy - Remove repository's directory safely.
-#
 
 
 usage() {
-    die "Usage: $(basename $0) {repodir}"
     # TODO: Description about options, arguments, and so on.
+    progname="`basename $0`"
+    cat <<EOM
+$progname - Remove repository's directory safely.
+Usage: $progname {repodir}
+EOM
+    exit 1
 }
 warn() {
     echo "$@" >&2

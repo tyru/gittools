@@ -6,8 +6,14 @@ remote="backup"
 branch="master"
 
 usage() {
-    progname="`basename $0`"
-    echo "Usage: $progname {repos_dir} [{remote} [{branch}]]" >&2
+    cat <<EOM
+git-push-backup - Push branch given remote
+
+NOTE: now I guess this is totally useless
+because 'git push --all' does the job.
+
+Usage: git-push-backup {repos_dir} [{remote} [{branch}]]
+EOM
     exit 1
 }
 
