@@ -10,6 +10,13 @@ add_failed_repo() {
 report_failed_repo() {
     [ -n "$failed" ] && echo "Failed to fetch:$failed"
 }
+list_submodule_paths() {
+    # NOTE: Read .gitmodules instead of using `git submodule status`
+    # because it often exits when error occurred.
+    # TODO: '=',"\n" character in path may break the result
+    git config -f .gitmodules --list | \
+        grep '\.path=' | sed 's/^submodule\..*\.path=//'
+}
 grep_managed_files() {
     # grep only version-control'ed files
     while read L; do
@@ -70,9 +77,7 @@ set -e
 cd "./`git rev-parse --show-cdup`" || \
     die 'cannot chdir to top directory of repository'
 
-# TODO: '=',"\n" character in path
-git config -f .gitmodules --list | \
-    grep '\.path=' | sed 's/^submodule\..*\.path=//' | \
+list_submodule_paths   | \
     grep_managed_files | \
     grep_uninitialized | \
     fetch_repo
