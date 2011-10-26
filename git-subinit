@@ -82,4 +82,5 @@ list_submodule_paths   | \
     grep_uninitialized | \
     fetch_repo
 
+# FIXME: `report_failed_repo` is not executed
 report_failed_repo
