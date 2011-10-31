@@ -1,5 +1,10 @@
 #!/bin/sh
 
+usage() {
+    echo "Usage: git subinit # will setup all submodules"
+    echo "       git subinit {submodule-path} # will setup only {submodule-path}"
+    exit 1
+}
 die() {
     echo "$@" >&2
     exit 1
@@ -83,6 +88,17 @@ grep_or_show_all() {
 set -e
 cd "./`git rev-parse --show-cdup`" || \
     die 'cannot chdir to top directory of repository'
+
+while [ $# -ne 0 ]; do
+    # FIXME: `git subinit --help` is recognized as `git help subinit`
+    case "$1" in
+        --help) usage ;;
+        --) shift; break ;;
+        -*) echo "unknown option '$1'" >&2; usage ;;
+        *) break ;;
+    esac
+    shift
+done
 
 list_submodule_paths      | \
     grep_managed_files    | \
