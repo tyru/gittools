@@ -71,15 +71,23 @@ detect_checkout_branch() {
 
     # Or else, just return error (empty string).
 }
+grep_or_show_all() {
+    if [ $# -eq 0 ]; then
+        cat -
+    else
+        grep "$1"
+    fi
+}
 
 
 set -e
 cd "./`git rev-parse --show-cdup`" || \
     die 'cannot chdir to top directory of repository'
 
-list_submodule_paths   | \
-    grep_managed_files | \
-    grep_uninitialized | \
+list_submodule_paths      | \
+    grep_managed_files    | \
+    grep_uninitialized    | \
+    grep_or_show_all "$@" | \
     fetch_repo
 
 # FIXME: `report_failed_repo` is not executed
