@@ -17,12 +17,14 @@ my $no_summary;
 my $no_pager;
 my $recursively;
 my $no_progress;
+my $only_summary;
 GetOptions(
     'h|help' => \$needhelp,
     'no-progress' => \$no_progress,
     'S|no-summary' => \$no_summary,
     'P|no-pager' => \$no_pager,
     'r|recursive' => \$recursively,
+    's|summary' => \$only_summary,
 ) or usage;
 usage if $needhelp;
 
@@ -31,11 +33,13 @@ die "You need to run this command from the toplevel of the working tree.\n"
     if qx(git rev-parse --show-cdup) =~ /\S/;
 
 my $previous_summary = qx(git submodule summary);
-system
-    qw(git submodule foreach),
-    ($recursively ? qw(--recursive) : ()),
-    ($no_progress ? qw(--quiet) : ()),
-    'git pull ' . ($no_progress ? '--quiet' : '') . ' origin master; true';
+unless ($only_summary) {
+    system
+        qw(git submodule foreach),
+        ($recursively ? qw(--recursive) : ()),
+        ($no_progress ? qw(--quiet) : ()),
+        'git pull ' . ($no_progress ? '--quiet' : '') . ' origin master; true';
+}
 my $current_summary = qx(git submodule summary);
 
 if (!$no_summary
