@@ -29,6 +29,7 @@ grep_managed_files() {
         if [ "`git ls-files "$L"`" ]; then
             echo "$L"
         else
+            echo "warning: $L is not under git version control. skip." >&2
             add_failed_repo "$L"
         fi
     done
@@ -39,6 +40,7 @@ grep_uninitialized() {
         if [ "`git submodule status "$L" | grep '^-'`" ]; then
             echo "$L"
         else
+            echo "warning: $L is already initialized. skip." >&2
             add_failed_repo "$L"
         fi
     done
