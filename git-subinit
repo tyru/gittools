@@ -76,11 +76,11 @@ detect_checkout_branch() {
 
     # Or else, just return error (empty string).
 }
-grep_or_show_all() {
+grep_submodule() {
     if [ $# -eq 0 ]; then
         cat -
     else
-        grep "$1"
+        grep --fixed-strings --line-regexp "$1"
     fi
 }
 
@@ -103,7 +103,7 @@ done
 list_submodule_paths      | \
     grep_managed_files    | \
     grep_uninitialized    | \
-    grep_or_show_all "$@" | \
+    grep_submodule "$@" | \
     fetch_repo
 
 # FIXME: `report_failed_repo` is not executed
