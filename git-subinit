@@ -22,18 +22,6 @@ list_submodule_paths() {
     git config -f .gitmodules --list | \
         grep '\.path=' | sed 's/^submodule\..*\.path=//'
 }
-grep_managed_files() {
-    # grep only version-control'ed files
-    while read L; do
-        # If the "$L" is managed
-        if [ "`git ls-files "$L"`" ]; then
-            echo "$L"
-        else
-            echo "warning: $L is not under git version control. skip." >&2
-            add_failed_repo "$L"
-        fi
-    done
-}
 grep_uninitialized() {
     while read L; do
         # If the first character is "-"
@@ -44,6 +32,13 @@ grep_uninitialized() {
             add_failed_repo "$L"
         fi
     done
+}
+grep_submodule() {
+    if [ $# -eq 0 ]; then
+        cat -
+    else
+        grep --fixed-strings --line-regexp "$1"
+    fi
 }
 fetch_repo() {
     while read repo; do
@@ -78,13 +73,6 @@ detect_checkout_branch() {
 
     # Or else, just return error (empty string).
 }
-grep_submodule() {
-    if [ $# -eq 0 ]; then
-        cat -
-    else
-        grep --fixed-strings --line-regexp "$1"
-    fi
-}
 
 
 set -e
@@ -103,9 +91,8 @@ while [ $# -ne 0 ]; do
 done
 
 list_submodule_paths      | \
-    grep_managed_files    | \
+    grep_submodule "$@"   | \
     grep_uninitialized    | \
-    grep_submodule "$@" | \
     fetch_repo
 
 # FIXME: `report_failed_repo` is not executed
