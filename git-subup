@@ -32,7 +32,6 @@ usage if $needhelp;
 die "You need to run this command from the toplevel of the working tree.\n"
     if qx(git rev-parse --show-cdup) =~ /\S/;
 
-my $previous_summary = qx(git submodule summary);
 unless ($only_summary) {
     system
         qw(git submodule foreach),
