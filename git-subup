@@ -6,6 +6,8 @@ use utf8;
 use Getopt::Long qw(:config gnu_compat no_bundling no_ignore_case);
 use Pod::Usage;
 use IO::Pager;
+use Cwd ();
+use Scope::Guard qw(guard);
 
 sub usage () {
     pod2usage(-verbose => 2);
@@ -16,11 +18,9 @@ my $needhelp;
 my $no_summary;
 my $no_pager;
 my $recursively;
-my $no_progress;
 my $only_summary;
 GetOptions(
     'h|help' => \$needhelp,
-    'no-progress' => \$no_progress,
     'S|no-summary' => \$no_summary,
     'P|no-pager' => \$no_pager,
     'r|recursive' => \$recursively,
@@ -32,20 +32,28 @@ usage if $needhelp;
 die "You need to run this command from the toplevel of the working tree.\n"
     if qx(git rev-parse --show-cdup) =~ /\S/;
 
-unless ($only_summary) {
-    system
-        qw(git submodule foreach),
-        ($recursively ? qw(--recursive) : ()),
-        ($no_progress ? qw(--quiet) : ()),
-        'git pull ' . ($no_progress ? '--quiet' : '') . ' origin master || true';
+my $out = qx(git config -f .gitmodules -z --get-regexp '^submodule\..+\.path\$');
+my @path = map { (split /\n/)[1] } split /\0/, $out;
+my $pattern = join '\|', @ARGV;
+if ($pattern ne '') {
+    @path = grep /$pattern/, @path;
 }
-my $current_summary = qx(git submodule summary);
+unless ($only_summary) {
+    my $cwd = Cwd::getcwd();
+    for my $path (@path) {
+        chdir $path and do {
+            my $guard = guard { chdir $cwd };
+            system qw(git pull origin master)
+        };
+    }
+}
 
-if (!$no_summary
-    && $current_summary ne '')
-{
+my $current_summary = qx(git submodule summary @path);
+if (!$no_summary && $current_summary ne '') {
     local *STDOUT = $no_pager ? *STDOUT : IO::Pager::open *STDOUT;
-    print $current_summary;
+    for (split /\n/, $current_summary) {
+        print "\n$_" if $pattern eq '' || /^\*.*(?:$pattern)/../^\s*$/;
+    }
 }
 
 __END__
