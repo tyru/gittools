@@ -37,7 +37,7 @@ unless ($only_summary) {
         qw(git submodule foreach),
         ($recursively ? qw(--recursive) : ()),
         ($no_progress ? qw(--quiet) : ()),
-        'git pull ' . ($no_progress ? '--quiet' : '') . ' origin master; true';
+        'git pull ' . ($no_progress ? '--quiet' : '') . ' origin master || true';
 }
 my $current_summary = qx(git submodule summary);
 
