@@ -75,39 +75,46 @@ for my $path (@path) {
     system qw(git add), $path;
 }
 
-# Show summary.
-my $current_summary = qx(git submodule summary @path);
-if (!$no_summary && $current_summary ne '') {
+# Show summary and error during update with pager.
+{
     local *STDOUT = $no_pager ? *STDOUT : IO::Pager::open *STDOUT;
-    for (split /\n/, $current_summary) {
-        print "\n$_" if $pattern eq '' || /^\*.*(?:$pattern)/../^\s*$/;
+
+    # Show summary.
+    print "\n\n------- Summary -------\n";
+
+    my $current_summary = qx(git submodule summary @path);
+    if (!$no_summary && $current_summary ne '') {
+        for (split /\n/, $current_summary) {
+            print "\n$_" if $pattern eq '' || /^\*.*(?:$pattern)/../^\s*$/;
+        }
+    }
+
+    # Show repos which failed to be updated.
+    if (@{ $failed{execute} }) {
+        print "\n\n------- Failed to execute git-pull -------\n";
+        for my $failed (@{ $failed{execute} }) {
+            printf "  %s\n", $failed->{path};
+        }
+    }
+    if (@{ $failed{signal} }) {
+        print "\n\n------- git-pull died with signal -------\n";
+        for my $failed (@{ $failed{signal} }) {
+            printf "  %s (signal: %d, %s coredump)\n",
+                  $failed->{path},
+                  ($failed->{status} & 127),
+                  ($failed->{status} & 128 ? 'with' : 'without');
+        }
+    }
+    if (@{ $failed{other} }) {
+        print "\n\n------- git-pull died with non-zero exit status -------\n";
+        for my $failed (@{ $failed{other} }) {
+            printf "  %s (exit status: %d)\n",
+                   $failed->{path},
+                   ($failed->{status} >> 8);
+        }
     }
 }
 
-# Show repos which failed to be updated.
-if (@{ $failed{execute} }) {
-    print "\n\nfailed to execute git-pull:\n";
-    for my $failed (@{ $failed{execute} }) {
-        printf "  %s\n", $failed->{path};
-    }
-}
-if (@{ $failed{signal} }) {
-    print "\n\ngit-pull died with signal:\n";
-    for my $failed (@{ $failed{signal} }) {
-        printf "  %s (signal: %d, %s coredump)\n",
-              $failed->{path},
-              ($failed->{status} & 127),
-              ($failed->{status} & 128 ? 'with' : 'without');
-    }
-}
-if (@{ $failed{other} }) {
-    print "\n\ngit-pull died with non-zero exit status:\n";
-    for my $failed (@{ $failed{other} }) {
-        printf "  %s (exit status: %d)\n",
-               $failed->{path},
-               ($failed->{status} >> 8);
-    }
-}
 
 __END__
 
