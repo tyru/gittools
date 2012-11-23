@@ -51,4 +51,6 @@ for name in "$@"; do
     # .gitmodules
     git config --file .gitmodules --remove-section submodule.$name
     git add .gitmodules
+    # .git/config
+    git config --file .git/config --remove-section submodule.$name
 done
