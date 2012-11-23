@@ -40,12 +40,32 @@ if ($pattern ne '') {
 }
 
 # Update submodules.
+my %failed = (
+    execute => [],
+    signal  => [],
+    other   => [],
+);
 unless ($only_summary) {
     my $cwd = Cwd::getcwd();
     for my $path (@path) {
         chdir $path and do {
             my $guard = guard { chdir $cwd };
-            system qw(git pull origin master)
+            system qw(git pull origin master);
+            # from 'perldoc -f system'
+            my $errlist;
+            if ($? == -1) {
+                $errlist = $failed{execute};
+            }
+            elsif ($? & 127) {
+                $errlist = $failed{signal};
+            }
+            elsif ($? != 0) {
+                $errlist = $failed{other};
+            }
+            push @$errlist, {
+                path => $path,
+                status => $?,
+            };
         };
     }
 }
@@ -56,6 +76,31 @@ if (!$no_summary && $current_summary ne '') {
     local *STDOUT = $no_pager ? *STDOUT : IO::Pager::open *STDOUT;
     for (split /\n/, $current_summary) {
         print "\n$_" if $pattern eq '' || /^\*.*(?:$pattern)/../^\s*$/;
+    }
+}
+
+# Show repos which failed to be updated.
+if (@{ $failed{execute} }) {
+    print "\n\nfailed to execute git-pull:\n";
+    for my $failed (@{ $failed{execute} }) {
+        printf "  %s\n", $failed->{path};
+    }
+}
+if (@{ $failed{signal} }) {
+    print "\n\ngit-pull died with signal:\n";
+    for my $failed (@{ $failed{signal} }) {
+        printf "  %s (signal: %d, %s coredump)\n",
+              $failed->{path},
+              ($failed->{status} & 127),
+              ($failed->{status} & 128 ? 'with' : 'without');
+    }
+}
+if (@{ $failed{other} }) {
+    print "\n\ngit-pull died with non-zero exit status:\n";
+    for my $failed (@{ $failed{other} }) {
+        printf "  %s (exit status: %d)\n",
+               $failed->{path},
+               ($failed->{status} >> 8);
     }
 }
 
