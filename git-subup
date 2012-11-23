@@ -59,6 +59,11 @@ if (!$no_summary && $current_summary ne '') {
     }
 }
 
+# 'git-add' submodule changes.
+for my $path (@path) {
+    system qw(git add), $path;
+}
+
 __END__
 
 =head1 NAME
