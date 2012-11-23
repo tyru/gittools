@@ -38,6 +38,8 @@ my $pattern = join '\|', @ARGV;
 if ($pattern ne '') {
     @path = grep /$pattern/, @path;
 }
+
+# Update submodules.
 unless ($only_summary) {
     my $cwd = Cwd::getcwd();
     for my $path (@path) {
@@ -48,6 +50,7 @@ unless ($only_summary) {
     }
 }
 
+# Show summary.
 my $current_summary = qx(git submodule summary @path);
 if (!$no_summary && $current_summary ne '') {
     local *STDOUT = $no_pager ? *STDOUT : IO::Pager::open *STDOUT;
