@@ -62,10 +62,10 @@ unless ($only_summary) {
             elsif ($? != 0) {
                 $errlist = $failed{other};
             }
-            push @$errlist, {
+            push @$errlist, +{
                 path => $path,
                 status => $?,
-            };
+            } if $errlist;
         };
     }
 }

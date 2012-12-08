@@ -25,16 +25,16 @@ sub main {
         chdir $repo;
         FileHandle->new('| tar zpxf -')->print($archive_gz);
         system qw(git init);
-        system qw(git commit -q --allow-empty -m hi);
+        system qw(git commit -q --allow-empty -m), 'initial commit (empty)';
         system qw(git add .);
-        system qw(git commit -m), 'hi (with existing files)';
+        system qw(git commit -m), 'initial commit';
     }
     else {
         remove_tree $repo;
         make_path $repo;
         chdir $repo;
         system qw(git init);
-        system qw(git commit -q --allow-empty -m hi);
+        system qw(git commit -q --allow-empty -m), 'initial commit (empty)';
     }
 }
 
