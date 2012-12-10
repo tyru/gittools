@@ -1,0 +1,325 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use utf8;
+
+# gnu_compat: --opt="..." is allowed.
+# no_bundling: single character option is not bundled.
+# no_ignore_case: no ignore case on long option.
+use Getopt::Long qw(:config posix_default gnu_compat no_bundling no_ignore_case);
+use Pod::Usage;
+use LWP::UserAgent;
+use HTTP::Request;
+use JSON qw(decode_json);
+use URI;
+use File::Spec::Functions qw(catfile);
+use File::Find::Rule;
+
+my $DEBUG = 0;
+
+
+sub usage () {
+    pod2usage(-verbose => 1);
+}
+
+sub prompt {
+    my ($msg) = @_;
+    my $input;
+    do {
+        print $msg;
+        $input = <STDIN>;
+        exit unless defined $input;
+        chomp $input;
+    } until $input ne '';
+    return $input;
+}
+
+sub get_user {
+    my $user = git_nodie(qw<config --get github.user>);
+    chomp $user;
+    if ($user eq '') {
+        $user = prompt("Input github username: ");
+    }
+    return $user;
+}
+
+sub get_password {
+    my $password = git_nodie(qw<config --get github.password>);
+    chomp $password;
+    if ($password eq '') {
+        $password = prompt("Input github password: ");
+    }
+    return $password;
+}
+
+sub git {
+    $DEBUG && print "[git] ", join(' ', map { "'$_'" } @{[@_]}), "\n";
+
+    open(my $fh, '-|', 'git', @_) or die "Can't open pipe: $!";
+    my $output = do { local $/; <$fh> };
+    close $fh;
+
+    # from 'perldoc -f system'
+    if ($? == -1) {
+        die "failed to execute git: $!\n";
+    }
+    elsif ($? & 127) {
+        die sprintf "git died with "
+                . "signal %d, %s coredump\n",
+                  ($? & 127),  ($? & 128) ? 'with' : 'without';
+    }
+    elsif ($? != 0) {
+        die sprintf "git exited with value %d\n", $? >> 8;
+    }
+
+    if (wantarray) {
+        return split(/\n/, $output);
+    }
+    else {
+        chomp $output;
+        return $output;
+    }
+}
+
+sub git_nodie {
+    open(my $fh, '-|', 'git', @_) or die "Can't open pipe: $!";
+    my $output = do { local $/; <$fh> };
+    close $fh;
+
+    return $output;
+}
+
+sub dirty_working_tree {
+    git_nodie('status', '--porcelain', '--untracked-files=no') ne '';
+}
+
+sub blob2content {
+    git('cat-file', '-p', $_[0]);
+}
+
+sub path2blob {
+    git('rev-parse', "HEAD:$_[0]");
+}
+
+sub get_vim_related_files {
+    my ($dir) = @_;
+    my $FILE = File::Find::Rule->new()->file();
+    my $VIM  = File::Find::Rule->new()->file()->name('*.vim');
+    my $DOC  = File::Find::Rule->new()->file()->name(qr/\.(txt|..x)/);
+    my @files =
+        $VIM->in(catfile($dir, "plugin")),
+        $VIM->in(catfile($dir, "autoload")),
+        $VIM->in(catfile($dir, "ftplugin")),
+        $VIM->in(catfile($dir, "ftdetect")),
+        $VIM->in(catfile($dir, "indent")),
+        $VIM->in(catfile($dir, "syntax")),
+        $VIM->in(catfile($dir, "colors")),
+        $VIM->in(catfile($dir, "compiler")),
+        $DOC->in(catfile($dir, "doc")),
+        $FILE->in(catfile($dir, "macros")),
+        (-d catfile($dir, 'after') ?
+            get_vim_related_files(catfile($dir, 'after')) : ())
+        ;
+    return @files;
+}
+
+sub get_blobs_of_vimorg {
+    my ($repo) = @_;
+    my $TMP_REMOTE = 'tmp-vimorg';
+    my %blob;
+    my $dirty;
+    my $remote_url;
+
+    eval {
+        # Save remote URL.
+        my ($remote_url) = map {
+            s/$TMP_REMOTE\s+//; $_
+        } grep /^$TMP_REMOTE/, git('remote', '-v');
+
+        # Fetch blob objects from remote.
+        defined $remote_url && git('remote', 'rm', $TMP_REMOTE);
+        git('remote', 'add', $TMP_REMOTE, "git://github.com/vim-scripts/".$repo->{name});
+        # git('remote', 'add', $TMP_REMOTE, "git://github.com/vim-scripts/".$repo->{name});
+        git('fetch', $TMP_REMOTE);
+
+        # Save working tree.
+        $dirty = dirty_working_tree();
+        if ($dirty) {
+            git('stash', 'save');
+        }
+
+        # Get blob SHA-1.
+        for my $file (get_vim_related_files('.')) {
+            $blob{path2blob($file)} = $file;
+        }
+    };
+
+    # Rollback.
+    if ($@) {
+        warn "warning: $@\n";
+        # TODO: Try to rollback.
+    }
+    else {
+        # Restore working tree.
+        if ($dirty) {
+            git('stash', 'pop');
+        }
+        # Restore branch.
+        git('checkout', "$TMP_REMOTE/master");
+        # Restore remote URL.
+        if ($remote_url) {
+            git('remote', 'add', $TMP_REMOTE, "git://github.com/vim-scripts/".$repo->{name});
+        }
+    }
+
+    return \%blob;
+}
+
+sub look_up_latest_commit {
+    my ($blob) = @_;
+    my $the_commit;
+    my @log = git('log', '--pretty=format:%T %H');
+    for my $log (@log) {
+        my ($tree, $commit) = ($log =~ m/^(\S+)\s+(.+)/);
+        find_blob($tree, sub {
+            my ($blob_sha1) = @_;
+            delete $blob->{$blob_sha1};
+            # All blobs are matched!
+            # The commit must have same files as $TMP_BRANCH.
+            unless (%$blob) {
+                $the_commit = $commit;
+                goto JUMP;
+            }
+        });
+    }
+JUMP:
+    return $the_commit;
+}
+
+sub find_blob {
+    my ($tree, $sub) = @_;
+
+    for (git('ls-tree', $tree)) {
+        my ($type, $sha1, $filename) = m/^\S+\s+(\S+)\s+(\S+)\s+(.+)/;
+        if ($type eq 'blob') {
+            $sub->($sha1);
+        }
+        elsif ($type eq 'tree') {
+            # depth first
+            find_blob($sha1, $sub);
+        }
+    }
+}
+
+
+
+GetOptions(
+    'h|help' => \&usage,
+) or usage;
+
+my $user     = get_user();
+my $password = get_password();
+
+my $vimbundle_dir = shift;
+unless (defined $vimbundle_dir) {
+    die "error: please specify vim bundle dir on your filesystem.\n";
+}
+unless (-e $vimbundle_dir) {
+    die "error: github dir does not seem to exist: $vimbundle_dir\n";
+}
+chdir $vimbundle_dir or die "$vimbundle_dir: $!";
+
+
+# Get repo list.
+my $ua = LWP::UserAgent->new;
+my $req = HTTP::Request->new(
+    GET => "https://api.github.com/users/$user/repos"
+);
+$req->authorization_basic($user, $password);
+my $res = $ua->request($req);
+die "failed to authenticate with github API: ".$res->status_line unless $res->is_success;
+my $repolist = decode_json($res->content);
+
+# Get list of repo which has www.vim.org homepage URL.
+my @plugins;
+for my $repo (ref $repolist eq 'ARRAY' ? @$repolist : ()) {
+    next if not defined $repo->{homepage};
+    next if $repo->{homepage} =~ /^\s*$/;
+    my $homepage = eval { URI->new($repo->{homepage}) };
+    if ($homepage->can('host') &&
+        $homepage->host() =~ /\A(?:www\.)vim\.org\Z/) {
+        push @plugins, $repo;
+    }
+}
+unless (@plugins) {
+    die "you don't seem to have vim plugins on github.\n";
+}
+
+my @unreleased;
+for my $repo (@plugins) {
+    print "Entering $repo->{name} ...\n";
+    chdir $repo->{name} or do {
+        # warn "warning: can't chdir into '$repo->{name}'... skip.";
+        chdir '..';
+        next;
+    };
+
+    # Get blob SHA-1 from github/vim-scripts.
+    my $blob = get_blobs_of_vimorg($repo);
+    # Look up a commit which has entirely same blob objects
+    # all I have in %blob.
+    my $commit = look_up_latest_commit($blob);
+    unless (defined $commit) {
+        die "Could not find the latest commit on vim.org!\n";
+    }
+
+    if ($commit ne git('rev-parse', 'HEAD')) {
+        my $abbr_commit = git('rev-parse', '--short', $commit);
+        push @unreleased, {
+            name   => $repo->{name},
+            commit => $commit,
+            abbr_commit => $abbr_commit,
+        };
+    }
+
+    chdir '..';
+}
+
+# Show unreleased plugins.
+print "\n\n";
+unless (@unreleased) {
+    print "All plugins are up to date. nice work!";
+}
+for (@unreleased) {
+    print <<EOM;
+$_->{name}:
+    Latest commit on vim.org: $_->{commit}
+EOM
+}
+
+
+
+__END__
+
+=head1 NAME
+
+    git-unreleased-vimplugins - NO DESCRIPTION YET
+
+
+=head1 SYNOPSIS
+
+
+=head1 OPTIONS
+
+=over
+
+=item -h, --help
+
+Show this help.
+
+=back
+
+
+=head1 AUTHOR
+
+tyru <tyru.exe@gmail.com>
