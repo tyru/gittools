@@ -91,32 +91,49 @@ sub get_plugins_from_bundle {
 }
 
 sub git {
-    $DEBUG && print "[git] ", join(' ', map { "'$_'" } @{[@_]}), "\n";
+    my @args = ('git', @_);
+    $DEBUG && print("[git] ".join(' ', @args)."\n");
 
-    open(my $fh, '-|', 'git', @_) or die "Can't open pipe: $!";
-    my $output = do { local $/; <$fh> };
-    close $fh;
+    pipe my $logrh, my $logwh
+        or die "failed to create pipe:$!";
+
+    my $status = -1;
+    my $output;
+    if (my $pid = fork) {
+        close $logwh;
+        $output = do { local $/; <$logrh> };
+        close $logrh;
+        "wait child process..." while wait == -1;
+        $status = $?;
+    } elsif (defined $pid) {
+        close $logrh;
+        open STDERR, '>&', $logwh
+            or die "failed to redirect STDERR to pipe";
+        open STDOUT, '>&', $logwh
+            or die "failed to redirect STDOUT to pipe";
+        close $logwh;
+        exec @args;
+        die "exec(2) failed:$!: @args";
+    } else {
+        close $logrh;
+        close $logwh;
+    }
 
     # from 'perldoc -f system'
-    if ($? == -1) {
+    if ($status == -1) {
         die "failed to execute git: $!\n";
     }
-    elsif ($? & 127) {
+    elsif ($status & 127) {
         die sprintf "git died with "
                 . "signal %d, %s coredump\n",
-                  ($? & 127),  ($? & 128) ? 'with' : 'without';
+                  ($status & 127),  ($status & 128) ? 'with' : 'without';
     }
-    elsif ($? != 0) {
-        die sprintf "git exited with value %d\n", $? >> 8;
+    elsif ($status != 0) {
+        die sprintf "git exited with value %d\n", $status >> 8;
     }
 
-    if (wantarray) {
-        return split(/\n/, $output);
-    }
-    else {
-        chomp $output;
-        return $output;
-    }
+    chomp $output;
+    return $output;
 }
 
 sub git_nodie {
@@ -125,6 +142,10 @@ sub git_nodie {
     close $fh;
 
     return $output;
+}
+
+sub git_lines {
+    split /\n/, git(@_)
 }
 
 sub dirty_working_tree {
@@ -145,11 +166,11 @@ sub get_vim_related_files {
     chdir $dir or die "can't chdir to '$dir': $!";
     my $guard = guard { chdir $cwd };
     my $FILE = File::Find::Rule->new()
-                ->file()->relative();
+                ->file();
     my $VIM  = File::Find::Rule->new()
-                ->file()->relative()->name('*.vim');
+                ->file()->name('*.vim');
     my $DOC  = File::Find::Rule->new()
-                ->file()->relative()->name(qr/\.(txt|..x)/);
+                ->file()->name(qr/\.(txt|..x)/);
     my @files =
         $VIM->in(catfile($dir, "plugin")),
         $VIM->in(catfile($dir, "autoload")),
@@ -171,58 +192,51 @@ sub get_blobs_of_vimorg {
     my ($repo) = @_;
     my $TMP_REMOTE = 'tmp-vimorg';
     my %blob;
-    my $dirty;
-    my $remote_url;
     my @guard;
 
-    eval {
-        # Change remote URL temporarily.
-        my ($remote_url) = map {
-            s/$TMP_REMOTE\s+//; $_
-        } grep /^$TMP_REMOTE/, git('remote', '-v');
-        # Restore remote URL.
-        defined $remote_url && push @guard, guard {
-            git('remote', 'add', $TMP_REMOTE, "git://github.com/vim-scripts/".$repo->{name});
-        };
-
-        # Fetch blob objects from remote.
-        defined $remote_url && git('remote', 'rm', $TMP_REMOTE);
+    # Change remote URL temporarily.
+    my ($remote_url) = map {
+        s/$TMP_REMOTE\s+//; $_
+    } grep /^$TMP_REMOTE/, git_lines('remote', '-v');
+    # Restore remote URL.
+    defined $remote_url && push @guard, guard {
         git('remote', 'add', $TMP_REMOTE, "git://github.com/vim-scripts/".$repo->{name});
-        # git('remote', 'add', $TMP_REMOTE, "git://github.com/vim-scripts/".$repo->{name});
-        git('fetch', $TMP_REMOTE);
-
-        # Change working tree temporarily.
-        if (dirty_working_tree()) {
-            git('stash', 'save');
-            # Restore working tree.
-            push @guard, guard {
-                git('stash', 'pop');
-            };
-        }
-
-        # Change current branch temporarily.
-        my ($branch) = map {
-            s/^\* //; $_
-        } grep /^\*/, git('branch');
-        push @guard, guard {
-            # Restore branch.
-            git('checkout', $branch);
-        };
-        git('checkout', "$TMP_REMOTE/master");
-
-        # Get blob SHA-1.
-        for my $file (get_vim_related_files('.')) {
-            warn $file;
-            $blob{path2blob($file)} = $file;
-        }
     };
 
-    # Rollback.
+    # Fetch blob objects from remote.
+    defined $remote_url && git('remote', 'rm', $TMP_REMOTE);
+    git('remote', 'add', $TMP_REMOTE, "git://github.com/vim-scripts/".$repo->{name});
+
+    # If a repository is not found, this git() will die().
+    eval { git('fetch', $TMP_REMOTE) };
     if ($@) {
-        warn "warning: $@\n";
-        # TODO: Try to rollback.
+        # warn "$repo->{name}: repository is not found...skip.\n";
+        return \%blob;
     }
-    else {
+
+    # Change working tree temporarily.
+    if (dirty_working_tree()) {
+        git('stash', 'save');
+        # Restore working tree.
+        push @guard, guard {
+            git('stash', 'pop');
+        };
+    }
+
+    # Change current branch temporarily.
+    my ($branch) = map {
+        s/^\* //; $_
+    } grep /^\*/, git_lines('branch');
+    push @guard, guard {
+        # Restore branch.
+        git('checkout', $branch);
+    };
+    git('checkout', "$TMP_REMOTE/master");
+
+    # Get blob SHA-1.
+    for my $file (get_vim_related_files('.')) {
+        warn $file;
+        $blob{path2blob($file)} = $file;
     }
 
     return \%blob;
@@ -231,7 +245,7 @@ sub get_blobs_of_vimorg {
 sub look_up_latest_commit {
     my ($blob) = @_;
     my $the_commit;
-    my @log = git('log', '--pretty=format:%T %H');
+    my @log = git_lines('log', '--pretty=format:%T %H');
     for my $log (@log) {
         my ($tree, $commit) = ($log =~ m/^(\S+)\s+(.+)/);
         find_blob($tree, sub {
@@ -252,7 +266,7 @@ JUMP:
 sub find_blob {
     my ($tree, $sub) = @_;
 
-    for (git('ls-tree', $tree)) {
+    for (git_lines('ls-tree', $tree)) {
         my ($type, $sha1, $filename) = m/^\S+\s+(\S+)\s+(\S+)\s+(.+)/;
         if ($type eq 'blob') {
             $sub->($sha1);
@@ -313,16 +327,24 @@ for my $plugin (@plugins) {
     };
 
     # Get blob SHA-1 from github/vim-scripts.
-    my $blob = get_blobs_of_vimorg($plugin);
+    my $blob = eval {
+        get_blobs_of_vimorg($plugin);
+    };
+    if ($@) {
+        warn "warning: $@\n";
+        next;
+    }
     # Look up a commit which has entirely same blob objects
     # all I have in %blob.
     my $commit = look_up_latest_commit($blob);
-    if (defined $commit && $commit ne git('rev-parse', 'HEAD')) {
+    my $count = scalar git_lines('log', '--oneline', "$commit..HEAD");
+    if (defined $commit && $count > 0) {
         my $abbr_commit = git('rev-parse', '--short', $commit);
         push @unreleased, {
             name   => $plugin->{name},
             commit => $commit,
             abbr_commit => $abbr_commit,
+            count => $count,
         };
     }
 }
@@ -335,7 +357,7 @@ unless (@unreleased) {
 for (@unreleased) {
     print <<EOM;
 $_->{name}:
-    Latest commit on vim.org: $_->{commit}
+    Latest commit on vim.org: $_->{commit} ($_->{count} commits between the HEADs)
 EOM
 }
 
