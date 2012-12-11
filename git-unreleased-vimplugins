@@ -6,7 +6,7 @@ use utf8;
 # gnu_compat: --opt="..." is allowed.
 # no_bundling: single character option is not bundled.
 # no_ignore_case: no ignore case on long option.
-use Getopt::Long qw(:config posix_default gnu_compat no_bundling no_ignore_case);
+use Getopt::Long qw(:config posix_default gnu_compat bundling no_ignore_case);
 use Pod::Usage;
 use LWP::UserAgent;
 use HTTP::Request;
@@ -23,6 +23,14 @@ my $DEBUG = 0;
 
 sub usage () {
     pod2usage(-verbose => 1);
+}
+
+sub info {
+    print "[info] @_\n" if $DEBUG >= 1;
+}
+
+sub debug {
+    print "[debug] @_\n" if $DEBUG >= 2;
 }
 
 sub prompt {
@@ -55,21 +63,11 @@ sub get_password {
     return $password;
 }
 
-sub get_plugins_from_github {
-    my ($user, $password) = @_;
+sub filter_vimplugin_repos {
+    my ($gh_repos) = @_;
 
-    my $ua = LWP::UserAgent->new;
-    my $req = HTTP::Request->new(
-        GET => "https://api.github.com/users/$user/repos"
-    );
-    $req->authorization_basic($user, $password);
-    my $res = $ua->request($req);
-    die "failed to authenticate with github API: ".$res->status_line unless $res->is_success;
-    my $repolist = decode_json($res->content);
-
-    # Get list of repo which has www.vim.org homepage URL.
     my @plugins;
-    for my $repo (ref $repolist eq 'ARRAY' ? @$repolist : ()) {
+    for my $repo (@$gh_repos) {
         next if not defined $repo->{homepage};
         next if $repo->{homepage} =~ /^\s*$/;
         my $homepage = eval { URI->new($repo->{homepage}) };
@@ -82,6 +80,25 @@ sub get_plugins_from_github {
     return @plugins;
 }
 
+sub get_github_repos {
+    my ($user, $password) = @_;
+
+    my $ua = LWP::UserAgent->new;
+    my $req = HTTP::Request->new(
+        GET => "https://api.github.com/users/$user/repos"
+    );
+    $req->authorization_basic($user, $password);
+    my $res = $ua->request($req);
+    die "failed to authenticate with github API: ".$res->status_line unless $res->is_success;
+    my $json = decode_json($res->content);
+    unless (ref($json) eq 'ARRAY') {
+        die "Github API returned a value which is not an array.";
+    }
+    debug(sprintf "'%s' has %d repos on Github.",
+                  $user, scalar(@$json));
+    return $json;
+}
+
 sub get_plugins_from_bundle {
     my ($vimbundle_dir) = @_;
 
@@ -90,9 +107,20 @@ sub get_plugins_from_bundle {
     } glob("$vimbundle_dir/*");
 }
 
+sub filter_my_repos {
+    my ($plugins, $gh_repos) = @_;
+
+    my %my_repos = map {
+        $_->{name} => 1
+    } @$gh_repos;
+    return grep {
+        exists $my_repos{ $_->{name} }
+    } @$plugins;
+}
+
 sub git {
     my @args = ('git', @_);
-    $DEBUG && print("[git] ".join(' ', @args)."\n");
+    $DEBUG && debug("[git] ".join(' ', @args));
 
     pipe my $logrh, my $logwh
         or die "failed to create pipe:$!";
@@ -103,7 +131,7 @@ sub git {
         close $logwh;
         $output = do { local $/; <$logrh> };
         close $logrh;
-        "wait child process..." while wait == -1;
+        1 while wait == -1;
         $status = $?;
     } elsif (defined $pid) {
         close $logrh;
@@ -199,9 +227,16 @@ sub get_blobs_of_vimorg {
         s/$TMP_REMOTE\s+//; $_
     } grep /^$TMP_REMOTE/, git_lines('remote', '-v');
     # Restore remote URL.
-    defined $remote_url && push @guard, guard {
-        git('remote', 'add', $TMP_REMOTE, "git://github.com/vim-scripts/".$repo->{name});
-    };
+    if (defined $remote_url) {
+        push @guard, guard {
+            git('remote', 'add', $TMP_REMOTE, "git://github.com/vim-scripts/".$repo->{name});
+        };
+    }
+    else {
+        push @guard, guard {
+            git('remote', 'rm', $TMP_REMOTE);
+        };
+    }
 
     # Fetch blob objects from remote.
     defined $remote_url && git('remote', 'rm', $TMP_REMOTE);
@@ -210,7 +245,7 @@ sub get_blobs_of_vimorg {
     # If a repository is not found, this git() will die().
     eval { git('fetch', $TMP_REMOTE) };
     if ($@) {
-        # warn "$repo->{name}: repository is not found...skip.\n";
+        info("$repo->{name}: repository is not found...skip.");
         return \%blob;
     }
 
@@ -235,7 +270,6 @@ sub get_blobs_of_vimorg {
 
     # Get blob SHA-1.
     for my $file (get_vim_related_files('.')) {
-        warn $file;
         $blob{path2blob($file)} = $file;
     }
 
@@ -285,7 +319,7 @@ my $SEE_BUNDLE = 1;
 my $see = $SEE_BUNDLE;
 GetOptions(
     'h|help' => \&usage,
-    'debug' => \$DEBUG,
+    'v|verbose' => sub { $DEBUG++ },
     'github' => sub { $see = $SEE_GITHUB },
     'bundle' => sub { $see = $SEE_BUNDLE },
 ) or usage;
@@ -300,29 +334,35 @@ unless (-e $vimbundle_dir) {
 }
 chdir $vimbundle_dir or die "$vimbundle_dir: $!";
 
+my $user     = get_user();
+my $password = get_password();
+my $gh_repos = get_github_repos($user, $password);
 
 # Get a list of vim plugin names.
 my @plugins;
 if ($see == $SEE_GITHUB) {
-    my $user     = get_user();
-    my $password = get_password();
-    @plugins = get_plugins_from_github($user, $password);
+    @plugins = filter_vimplugin_repos($gh_repos);
 }
 else {
     @plugins = get_plugins_from_bundle($vimbundle_dir);
+    @plugins = filter_my_repos(\@plugins, $gh_repos);
 }
 unless (@plugins) {
     die "you don't seem to have vim plugins on github.\n";
 }
+info("[debug] $_->{name}") for @plugins;
 
 # Check unreleased plugins.
 my @unreleased;
 for my $plugin (@plugins) {
-    print "Entering $plugin->{name} ...\n";
+    info("Entering $plugin->{name} ...");
     my $cwd = Cwd::getcwd();
-    my $guard = guard { chdir $cwd };
+    my $guard = guard {
+        chdir $cwd;
+        info("Leaving $plugin->{name} ...");
+    };
     chdir $plugin->{name} or do {
-        # warn "warning: can't chdir into '$plugin->{name}'... skip.";
+        info("warning: can't chdir into '$plugin->{name}'... skip.");
         next;
     };
 
