@@ -90,6 +90,7 @@ sub get_github_repos {
     my $retry = 0;
     my $MAX_RETRY = 2;
 
+    debug("getting repos from Github API...");
     while (1) {
         my $url = sprintf(
             "https://api.github.com/user/repos?page=%d&per_page=%d",
@@ -272,7 +273,7 @@ sub get_blobs_of_vimorg {
     eval { git('fetch', $TMP_REMOTE) };
     if ($@) {
         info("$repo->{name}: repository is not found...skip.");
-        return \%blob;
+        return undef;
     }
 
     # Change working tree temporarily.
@@ -338,6 +339,57 @@ sub find_blob {
     }
 }
 
+sub get_unreleased_plugins {
+    my ($plugins) = @_;
+
+    my @unreleased;
+    for my $plugin (@$plugins) {
+        info("Entering $plugin->{name} ...");
+        my $cwd = Cwd::getcwd();
+        my $guard = guard {
+            chdir $cwd;
+            info("Leaving $plugin->{name} ...");
+        };
+        chdir $plugin->{name} or do {
+            info("warning: can't chdir into '$plugin->{name}'... skip.");
+            next;
+        };
+
+        # Get blob SHA-1 from github/vim-scripts.
+        my $blob = eval {
+            get_blobs_of_vimorg($plugin);
+        };
+        if ($@) {
+            warn "warning: $@\n";
+            next;
+        }
+        # github/vim-scripts repository is not found.
+        # (git-fetch(1) failed)
+        unless (defined $blob) {
+            push @unreleased, {
+                name => $plugin->{name},
+                upload => 0,
+            };
+        }
+
+        # Look up a commit which has entirely same blob objects
+        # all I have in %blob.
+        my $commit = look_up_latest_commit($blob);
+        my $count = scalar git_lines('log', '--oneline', "$commit..HEAD");
+        if (defined $commit && $count > 0) {
+            my $abbr_commit = git('rev-parse', '--short', $commit);
+            push @unreleased, {
+                name   => $plugin->{name},
+                upload => 1,
+                commit => $commit,
+                abbr_commit => $abbr_commit,
+                count => $count,
+            };
+        }
+    }
+    return @unreleased;
+}
+
 
 
 my $SEE_GITHUB = 0;
@@ -371,49 +423,15 @@ if ($see == $SEE_GITHUB) {
 }
 else {
     @plugins = get_plugins_from_bundle($vimbundle_dir);
-    @plugins = filter_my_repos(\@plugins, $gh_repos);
 }
 unless (@plugins) {
     die "you don't seem to have vim plugins on github.\n";
 }
+@plugins = filter_my_repos(\@plugins, $gh_repos);
 info("[debug] $_->{name}") for @plugins;
 
-# Check unreleased plugins.
-my @unreleased;
-for my $plugin (@plugins) {
-    info("Entering $plugin->{name} ...");
-    my $cwd = Cwd::getcwd();
-    my $guard = guard {
-        chdir $cwd;
-        info("Leaving $plugin->{name} ...");
-    };
-    chdir $plugin->{name} or do {
-        info("warning: can't chdir into '$plugin->{name}'... skip.");
-        next;
-    };
-
-    # Get blob SHA-1 from github/vim-scripts.
-    my $blob = eval {
-        get_blobs_of_vimorg($plugin);
-    };
-    if ($@) {
-        warn "warning: $@\n";
-        next;
-    }
-    # Look up a commit which has entirely same blob objects
-    # all I have in %blob.
-    my $commit = look_up_latest_commit($blob);
-    my $count = scalar git_lines('log', '--oneline', "$commit..HEAD");
-    if (defined $commit && $count > 0) {
-        my $abbr_commit = git('rev-parse', '--short', $commit);
-        push @unreleased, {
-            name   => $plugin->{name},
-            commit => $commit,
-            abbr_commit => $abbr_commit,
-            count => $count,
-        };
-    }
-}
+# Check unreleased/un-uploaded plugins.
+my @unreleased = get_unreleased_plugins(\@plugins);
 
 # Show unreleased plugins.
 print "\n\n";
@@ -421,10 +439,18 @@ unless (@unreleased) {
     print "All plugins are up to date. nice work!";
 }
 for (@unreleased) {
-    print <<EOM;
+    if ($_->{upload}) {
+        print <<EOM;
 $_->{name}:
     Latest commit on vim.org: $_->{commit} ($_->{count} commits between the HEADs)
 EOM
+    }
+    else {
+        print <<EOM;
+$_->{name}:
+    Latest commit on vim.org: (not uploaded yet)
+EOM
+    }
 }
 
 
