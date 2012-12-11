@@ -83,20 +83,46 @@ sub filter_vimplugin_repos {
 sub get_github_repos {
     my ($user, $password) = @_;
 
+    my @repos;
     my $ua = LWP::UserAgent->new;
-    my $req = HTTP::Request->new(
-        GET => "https://api.github.com/users/$user/repos"
-    );
-    $req->authorization_basic($user, $password);
-    my $res = $ua->request($req);
-    die "failed to authenticate with github API: ".$res->status_line unless $res->is_success;
-    my $json = decode_json($res->content);
-    unless (ref($json) eq 'ARRAY') {
-        die "Github API returned a value which is not an array.";
+    my $page = 1;
+    my $PER_PAGE = 100;    # max value
+    my $retry = 0;
+    my $MAX_RETRY = 2;
+
+    while (1) {
+        my $url = sprintf(
+            "https://api.github.com/user/repos?page=%d&per_page=%d",
+            $page, $PER_PAGE
+        );
+        my $req = HTTP::Request->new(GET => $url);
+        $req->authorization_basic($user, $password);
+        my $res = $ua->request($req);
+        unless ($res->is_success) {
+            if ($retry++ < $MAX_RETRY) {
+                info("got failure response, "
+                   . "retrying... ($retry/$MAX_RETRY)");
+            }
+            die "failed to authenticate with github API: "
+                . $res->status_line;
+        }
+        $retry = 0;
+        # Decode JSON.
+        my $json = decode_json($res->content);
+        unless (ref($json) eq 'ARRAY') {
+            die "Github API returned a value which is not an array.";
+        }
+        unless (@$json) {
+            # No more repos.
+            last;
+        }
+        # Add repos to @repos.
+        push @repos, @$json;
+        $page++;
     }
     debug(sprintf "'%s' has %d repos on Github.",
-                  $user, scalar(@$json));
-    return $json;
+                  $user, scalar(@repos));
+    return \@repos;
 }
 
 sub get_plugins_from_bundle {
