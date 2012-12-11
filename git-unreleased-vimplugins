@@ -63,6 +63,45 @@ sub get_password {
     return $password;
 }
 
+{
+    my $ENDPOINT = "https://api.github.com";
+    my $USER;
+    my $PASSWORD;
+
+    sub set_up_useragent {
+        my ($user, $password) = @_;
+        $USER = $user;
+        $PASSWORD = $password;
+    }
+
+    sub api_get {
+        my ($path, %param) = @_;
+
+        my $url = URI->new("${ENDPOINT}${path}");
+        if (%param) {
+            $url->query_form(%param);
+        }
+
+        die 'call set_up_useragent($user, $password) before.'
+            if !defined($USER) || !defined($PASSWORD);
+        my $req = HTTP::Request->new(GET => $url);
+        $req->authorization_basic($USER, $PASSWORD);
+
+        my $ua = LWP::UserAgent->new;
+        return $ua->request($req);
+    }
+
+    sub api_get_json {
+        my ($path) = @_;
+
+        my $res = api_get(@_);
+        unless ($res->is_success) {
+            die "GET $path: ".$res->status_line;
+        }
+        return decode_json($res->content);
+    }
+}
+
 sub filter_vimplugin_repos {
     my ($gh_repos) = @_;
 
@@ -84,7 +123,6 @@ sub get_github_repos {
     my ($user, $password) = @_;
 
     my @repos;
-    my $ua = LWP::UserAgent->new;
     my $page = 1;
     my $PER_PAGE = 100;    # max value
     my $retry = 0;
@@ -92,13 +130,7 @@ sub get_github_repos {
 
     debug("getting repos from Github API...");
     while (1) {
-        my $url = sprintf(
-            "https://api.github.com/user/repos?page=%d&per_page=%d",
-            $page, $PER_PAGE
-        );
-        my $req = HTTP::Request->new(GET => $url);
-        $req->authorization_basic($user, $password);
-        my $res = $ua->request($req);
+        my $res = api_get("/user/repos", page => $page, per_page => $PER_PAGE);
         unless ($res->is_success) {
             if ($retry++ < $MAX_RETRY) {
                 info("got failure response, "
@@ -355,29 +387,24 @@ sub get_unreleased_plugins {
             next;
         };
 
-        # Get blob SHA-1 from github/vim-scripts.
-        my $blob;
-        for my $guessed (guess_repo_name($plugin, $user)) {
-            $_ = eval { get_blobs_of_vimorg($guessed) };
-            if (defined $_) {
-                $blob = $_;
-                last;
-            }
-            if ($@) {
-                warn "warning: $@\n";
-            }
-            # If error occurred or get_blobs_of_vimorg()
-            # returned undef, try next guessed name.
-            debug("failed to guess repo name: "
-                . "github.com/vim-scripts/$guessed->{name} "
-                . "is not found.");
-        }
+        # Guess repo name on github/vim-scripts.
+        my $orgname = $plugin->{name};
+        my $repo = find_vimscripts_repo($plugin, $user);
+
         # Failed to guess github/vim-scripts repository name.
-        unless (defined $blob) {
+        unless (defined $repo) {
             push @unreleased, {
-                name => $plugin->{name},
+                name   => $orgname,
                 upload => 0,
             };
+            next;
+        }
+
+        # Get blob SHA-1 from github/vim-scripts.
+        my $blob = eval { get_blobs_of_vimorg($repo) };
+        if ($@) {
+            die "error: repository found for '$orgname' "
+              . "but could not fetch blobs: $@\n";
         }
 
         # Look up a commit which has entirely same blob objects
@@ -388,7 +415,8 @@ sub get_unreleased_plugins {
             if ($count > 0) {
                 my $abbr_commit = git('rev-parse', '--short', $commit);
                 push @unreleased, {
-                    name   => $plugin->{name},
+                    name => $orgname,
+                    vimorg_name => $repo->{name},
                     upload => 1,
                     commit => $commit,
                     abbr_commit => $abbr_commit,
@@ -398,6 +426,32 @@ sub get_unreleased_plugins {
         }
     }
     return @unreleased;
+}
+
+sub find_vimscripts_repo {
+    my ($plugin, $user) = @_;
+    for my $guessed (guess_repo_name($plugin, $user)) {
+        debug("guessing repo name is "
+            . "'$guessed->{name}' ...");
+        # Github API is case-insensitive.
+        # If a repo name "winmove" can hit
+        # "github.com/vim-scripts/WinMove".
+        my $json = eval {
+            api_get_json("/repos/vim-scripts/$guessed->{name}");
+        };
+        if (ref($json) eq 'HASH' && defined $json->{name}) {
+            return {
+                %$guessed,
+                # correct repo name.
+                # e.g.) "WinMove"
+                name => $json->{name},
+            };
+        }
+        debug("failed to guess repo name: "
+            . "github.com/vim-scripts/$guessed->{name} "
+            . "is not found.");
+    }
+    return undef;
 }
 
 sub guess_repo_name {
@@ -457,6 +511,7 @@ chdir $vimbundle_dir or die "$vimbundle_dir: $!";
 
 my $user     = get_user();
 my $password = get_password();
+set_up_useragent($user, $password);
 my $gh_repos = get_github_repos($user, $password);
 
 # Get a list of vim plugin names.
@@ -486,6 +541,7 @@ for (@unreleased) {
         print <<EOM;
 $_->{name}:
     Latest commit on vim.org: $_->{commit} ($_->{count} commits between the HEADs)
+    Plugin name on vim.org: $_->{vimorg_name}
 EOM
     }
     else {
