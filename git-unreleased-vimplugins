@@ -63,6 +63,7 @@ sub get_password {
     return $password;
 }
 
+### Communiate with Github API ###
 {
     my $ENDPOINT = "https://api.github.com";
     my $USER;
@@ -525,13 +526,16 @@ else {
 unless (@plugins) {
     die "you don't seem to have vim plugins on github.\n";
 }
+
+# Filter plugins which has a repository
+# on user's Github account.
 @plugins = filter_my_repos(\@plugins, $gh_repos);
 info("[debug] $_->{name}") for @plugins;
 
-# Check unreleased/un-uploaded plugins.
+# Get unreleased/un-uploaded plugins.
 my @unreleased = get_unreleased_plugins(\@plugins, $user);
 
-# Show unreleased plugins.
+# Show unreleased/un-uploaded plugins.
 print "\n\n";
 unless (@unreleased) {
     print "All plugins are up to date. nice work!";
