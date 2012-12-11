@@ -276,8 +276,6 @@ GetOptions(
     'bundle' => sub { $see = $SEE_BUNDLE },
 ) or usage;
 
-my $user     = get_user();
-my $password = get_password();
 
 my $vimbundle_dir = shift;
 unless (defined $vimbundle_dir) {
@@ -292,6 +290,8 @@ chdir $vimbundle_dir or die "$vimbundle_dir: $!";
 # Get a list of vim plugin names.
 my @plugins;
 if ($see == $SEE_GITHUB) {
+    my $user     = get_user();
+    my $password = get_password();
     @plugins = get_plugins_from_github($user, $password);
 }
 else {
