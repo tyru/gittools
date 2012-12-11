@@ -340,7 +340,7 @@ sub find_blob {
 }
 
 sub get_unreleased_plugins {
-    my ($plugins) = @_;
+    my ($plugins, $user) = @_;
 
     my @unreleased;
     for my $plugin (@$plugins) {
@@ -356,15 +356,23 @@ sub get_unreleased_plugins {
         };
 
         # Get blob SHA-1 from github/vim-scripts.
-        my $blob = eval {
-            get_blobs_of_vimorg($plugin);
-        };
-        if ($@) {
-            warn "warning: $@\n";
-            next;
+        my $blob;
+        for my $guessed (guess_repo_name($plugin, $user)) {
+            $_ = eval { get_blobs_of_vimorg($guessed) };
+            if (defined $_) {
+                $blob = $_;
+                last;
+            }
+            if ($@) {
+                warn "warning: $@\n";
+            }
+            # If error occurred or get_blobs_of_vimorg()
+            # returned undef, try next guessed name.
+            debug("failed to guess repo name: "
+                . "github.com/vim-scripts/$guessed->{name} "
+                . "is not found.");
         }
-        # github/vim-scripts repository is not found.
-        # (git-fetch(1) failed)
+        # Failed to guess github/vim-scripts repository name.
         unless (defined $blob) {
             push @unreleased, {
                 name => $plugin->{name},
@@ -375,19 +383,54 @@ sub get_unreleased_plugins {
         # Look up a commit which has entirely same blob objects
         # all I have in %blob.
         my $commit = look_up_latest_commit($blob);
-        my $count = scalar git_lines('log', '--oneline', "$commit..HEAD");
-        if (defined $commit && $count > 0) {
-            my $abbr_commit = git('rev-parse', '--short', $commit);
-            push @unreleased, {
-                name   => $plugin->{name},
-                upload => 1,
-                commit => $commit,
-                abbr_commit => $abbr_commit,
-                count => $count,
-            };
+        if (defined $commit) {
+            my $count = scalar git_lines('log', '--oneline', "$commit..HEAD");
+            if ($count > 0) {
+                my $abbr_commit = git('rev-parse', '--short', $commit);
+                push @unreleased, {
+                    name   => $plugin->{name},
+                    upload => 1,
+                    commit => $commit,
+                    abbr_commit => $abbr_commit,
+                    count => $count,
+                };
+            }
         }
     }
     return @unreleased;
+}
+
+sub guess_repo_name {
+    my ($plugin, $user) = @_;
+    $_ = $plugin->{name};
+
+    my @guessed = ($_);
+    if (/^vim[-_](.+)$/i) {
+        push @guessed, $1;
+    }
+    if (/(.+)[.-_]vim$/i) {
+        push @guessed, $1;
+    }
+    if (/(.+)\.vim$/i) {
+        push @guessed, "$1-vim";
+    }
+    if (/(.+)-vim$/i) {
+        push @guessed, "$1.vim";
+    }
+    if (! /^vim\b/ && ! /\bvim$/) {
+        push @guessed, "$_.vim";
+        push @guessed, "$_-vim";
+        push @guessed, "vim-$_";
+    }
+    # https://github.com/vim-scripts/rvm.vim--Pope
+    push @guessed, "$_--$user";
+    # e.g.) https://github.com/vim-scripts/skk.vim-B
+    push @guessed, "$_-B";
+    # push @guessed, "$_-C";
+
+    return map {
+        +{%$plugin, name => $_}
+    } @guessed;
 }
 
 
@@ -431,7 +474,7 @@ unless (@plugins) {
 info("[debug] $_->{name}") for @plugins;
 
 # Check unreleased/un-uploaded plugins.
-my @unreleased = get_unreleased_plugins(\@plugins);
+my @unreleased = get_unreleased_plugins(\@plugins, $user);
 
 # Show unreleased plugins.
 print "\n\n";
