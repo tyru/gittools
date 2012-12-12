@@ -17,20 +17,25 @@ use File::Basename qw(basename);
 use Cwd ();
 use File::Find::Rule;
 use Guard qw(guard);
+use IO::Handle;
 
-my $DEBUG = 0;
+my $DEBUG_LEVEL = 1;
 
 
 sub usage () {
     pod2usage(-verbose => 1);
 }
 
+sub msg {
+    print "@_\n" if $DEBUG_LEVEL >= 1;
+}
+
 sub info {
-    print "[info] @_\n" if $DEBUG >= 1;
+    print "[info] @_\n" if $DEBUG_LEVEL >= 2;
 }
 
 sub debug {
-    print "[debug] @_\n" if $DEBUG >= 2;
+    print "[debug] @_\n" if $DEBUG_LEVEL >= 3;
 }
 
 sub prompt {
@@ -194,7 +199,7 @@ sub uniq_repos {
 
 sub git {
     my @args = ('git', @_);
-    $DEBUG && debug("[git] ".join(' ', @args));
+    debug("[git] ".join(' ', @args));
 
     pipe my $logrh, my $logwh
         or die "failed to create pipe:$!";
@@ -352,23 +357,25 @@ sub get_blobs_of_vimorg {
 }
 
 sub look_up_latest_commit {
-    my ($blob) = @_;
+    my ($name, $blob) = @_;
     my $the_commit;
-    my @log = git_lines('log', '--pretty=format:%T %H');
+    my @log = git_lines('log', '--pretty=format:%T %t %H %h');
     for my $log (@log) {
-        my ($tree, $commit) = ($log =~ m/^(\S+)\s+(.+)/);
+        my ($tree, $abbr_tree, $commit, $abbr_commit) = split /\s+/, $log;
         find_blob($tree, sub {
-            my ($blob_sha1) = @_;
-            delete $blob->{$blob_sha1};
-            # All blobs are matched!
-            # The commit must have same files as $TMP_BRANCH.
+            my ($sha1) = @_;
+            print "\r$name: $abbr_commit(commit)/$abbr_tree(tree)/$sha1(blob)";
+            delete $blob->{$sha1};
             unless (%$blob) {
+                # All blobs are matched!
+                # The commit must have same files as $TMP_BRANCH.
                 $the_commit = $commit;
                 goto JUMP;
             }
         });
     }
 JUMP:
+    print "\n";
     return $the_commit;
 }
 
@@ -376,13 +383,13 @@ sub find_blob {
     my ($tree, $sub) = @_;
 
     for (git_lines('ls-tree', $tree)) {
-        my ($type, $sha1, $filename) = m/^\S+\s+(\S+)\s+(\S+)\s+(.+)/;
+        my ($type, $blob, $filename) = m/^\S+\s+(\S+)\s+(\S+)\s+(.+)/;
         if ($type eq 'blob') {
-            $sub->($sha1);
+            $sub->($blob);
         }
         elsif ($type eq 'tree') {
             # depth first
-            find_blob($sha1, $sub);
+            find_blob($blob, $sub);
         }
     }
 }
@@ -392,11 +399,11 @@ sub get_unreleased_plugins {
 
     my %unreleased;
     for my $plugin (@$plugins) {
-        info("Entering $plugin->{name} ...");
+        msg("Entering $plugin->{name} ...");
         my $cwd = Cwd::getcwd();
         my $guard = guard {
             chdir $cwd;
-            info("Leaving $plugin->{name} ...");
+            msg("Leaving $plugin->{name} ...");
         };
         chdir $plugin->{name} or do {
             info("warning: can't chdir into '$plugin->{name}'... skip.");
@@ -415,21 +422,24 @@ sub get_unreleased_plugins {
             };
             next;
         }
+        msg("$orgname: Found github/vim-scripts repository: $repo->{name}");
 
         # Get blob SHA-1 from github/vim-scripts.
         my $blob = eval { get_blobs_of_vimorg($repo) };
         if ($@) {
-            die "error: repository found for '$orgname' "
+            die "error: found a repository for '$orgname' "
               . "but could not fetch blobs: $@\n";
         }
 
         # Look up a commit which has entirely same blob objects
         # all I have in %blob.
-        my $commit = look_up_latest_commit($blob);
+        my $commit = look_up_latest_commit($orgname, $blob);
         if (defined $commit) {
+            my $abbr_commit = git('rev-parse', '--short', $commit);
+            msg("$orgname: Found the same commit "
+              . "on vim.org: $abbr_commit");
             my $count = scalar git_lines('log', '--oneline', "$commit..HEAD");
             if ($count > 0) {
-                my $abbr_commit = git('rev-parse', '--short', $commit);
                 $unreleased{$orgname} = {
                     name => $orgname,
                     vimorg_name => $repo->{name},
@@ -439,6 +449,12 @@ sub get_unreleased_plugins {
                     count => $count,
                 };
             }
+            else {
+                msg("$orgname: uploaded plugin on vim.org is up to date.");
+            }
+        }
+        else {
+            msg("$orgname: Not found the same commit on vim.org ...");
         }
     }
     return \%unreleased;
@@ -515,11 +531,15 @@ my $see = $SEE_BUNDLE;
 my $save_repo_map = 1;
 GetOptions(
     'h|help' => \&usage,
-    'v|verbose' => sub { $DEBUG++ },
+    'q|quiet' => sub { $DEBUG_LEVEL-- },
+    'v|verbose' => sub { $DEBUG_LEVEL++ },
     'github' => sub { $see = $SEE_GITHUB },
     'bundle' => sub { $see = $SEE_BUNDLE },
     'no-save' => sub { $save_repo_map = 0 },
 ) or usage;
+
+STDOUT->autoflush(1);
+STDERR->autoflush(1);
 
 
 my $vimbundle_dir = shift;
@@ -551,7 +571,8 @@ unless (@plugins) {
 # Filter plugins which has a repository
 # on user's Github account.
 @plugins = filter_my_repos(\@plugins, $gh_repos);
-info("[debug] $_->{name}") for @plugins;
+msg("vim plugins:") if @plugins;
+msg("  $_->{name}") for @plugins;
 
 # Uniq @plugins by $_->{name}.
 @plugins = uniq_repos(\@plugins);
@@ -561,7 +582,7 @@ my $unreleased = get_unreleased_plugins(\@plugins, $user);
 
 if ($save_repo_map) {
     for my $name (keys %$unreleased) {
-        # TODO: escape $_
+        # TODO: escape $name
         if (exists $unreleased->{$name}{vimorg_name}) {
             my $vimorg_name = $unreleased->{$name}{vimorg_name};
             debug("saving a repo name on github/vim-scripts "
