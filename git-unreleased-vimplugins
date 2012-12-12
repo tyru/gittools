@@ -477,6 +477,10 @@ sub guess_repo_name {
         push @guessed, "$_-vim";
         push @guessed, "vim-$_";
     }
+    if (/[^[:alnum:]]/) {
+        push @guessed, $_;
+        $guessed[-1] =~ s/[^[:alnum:]]//g;
+    }
     # https://github.com/vim-scripts/rvm.vim--Pope
     push @guessed, "$_--$user";
     # e.g.) https://github.com/vim-scripts/skk.vim-B
