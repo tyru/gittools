@@ -178,6 +178,20 @@ sub filter_my_repos {
     } @$plugins;
 }
 
+sub uniq_repos {
+    my ($plugins) = @_;
+    my %h;
+    return grep {
+        my $name = $_->{name};
+        my $dup = exists $h{$name};
+        if ($dup) {
+            warn "warning: '$name' was given more than twice?\n";
+        }
+        $h{$name} = 1;
+        not $dup;
+    } @$plugins;
+}
+
 sub git {
     my @args = ('git', @_);
     $DEBUG && debug("[git] ".join(' ', @args));
@@ -537,6 +551,9 @@ unless (@plugins) {
 # on user's Github account.
 @plugins = filter_my_repos(\@plugins, $gh_repos);
 info("[debug] $_->{name}") for @plugins;
+
+# Uniq @plugins by $_->{name}.
+@plugins = uniq_repos(\@plugins);
 
 # Get unreleased/un-uploaded plugins.
 my $unreleased = get_unreleased_plugins(\@plugins, $user);
