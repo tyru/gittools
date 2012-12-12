@@ -303,6 +303,7 @@ sub get_blobs_of_vimorg {
     # Restore remote URL.
     if (defined $remote_url) {
         push @guard, guard {
+            git('remote', 'rm', $TMP_REMOTE);
             git('remote', 'add', $TMP_REMOTE, "git://github.com/vim-scripts/".$repo->{name});
         };
     }
