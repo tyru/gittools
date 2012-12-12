@@ -375,7 +375,7 @@ sub find_blob {
 sub get_unreleased_plugins {
     my ($plugins, $user) = @_;
 
-    my @unreleased;
+    my %unreleased;
     for my $plugin (@$plugins) {
         info("Entering $plugin->{name} ...");
         my $cwd = Cwd::getcwd();
@@ -394,7 +394,7 @@ sub get_unreleased_plugins {
 
         # Failed to guess github/vim-scripts repository name.
         unless (defined $repo) {
-            push @unreleased, {
+            $unreleased{$orgname} = {
                 name   => $orgname,
                 upload => 0,
             };
@@ -415,7 +415,7 @@ sub get_unreleased_plugins {
             my $count = scalar git_lines('log', '--oneline', "$commit..HEAD");
             if ($count > 0) {
                 my $abbr_commit = git('rev-parse', '--short', $commit);
-                push @unreleased, {
+                $unreleased{$orgname} = {
                     name => $orgname,
                     vimorg_name => $repo->{name},
                     upload => 1,
@@ -426,7 +426,7 @@ sub get_unreleased_plugins {
             }
         }
     }
-    return @unreleased;
+    return \%unreleased;
 }
 
 sub find_vimscripts_repo {
@@ -497,11 +497,13 @@ sub guess_repo_name {
 my $SEE_GITHUB = 0;
 my $SEE_BUNDLE = 1;
 my $see = $SEE_BUNDLE;
+my $save_repo_map = 1;
 GetOptions(
     'h|help' => \&usage,
     'v|verbose' => sub { $DEBUG++ },
     'github' => sub { $see = $SEE_GITHUB },
     'bundle' => sub { $see = $SEE_BUNDLE },
+    'no-save' => sub { $save_repo_map = 0 },
 ) or usage;
 
 
@@ -537,14 +539,27 @@ unless (@plugins) {
 info("[debug] $_->{name}") for @plugins;
 
 # Get unreleased/un-uploaded plugins.
-my @unreleased = get_unreleased_plugins(\@plugins, $user);
+my $unreleased = get_unreleased_plugins(\@plugins, $user);
+
+if ($save_repo_map) {
+    for my $name (keys %$unreleased) {
+        # TODO: escape $_
+        if (exists $unreleased->{$name}{vimorg_name}) {
+            my $vimorg_name = $unreleased->{$name}{vimorg_name};
+            debug("saving a repo name on github/vim-scripts "
+                . "for '$name': '$vimorg_name'");
+            git('config', '--global', '--replace-all',
+                "unreleased-vimplugins.$_", $vimorg_name);
+        }
+    }
+}
 
 # Show unreleased/un-uploaded plugins.
 print "\n\n";
-unless (@unreleased) {
+unless (%$unreleased) {
     print "All plugins are up to date. nice work!";
 }
-for (@unreleased) {
+for (map { $unreleased->{$_} } sort keys %$unreleased) {
     if ($_->{upload}) {
         print <<EOM;
 $_->{name}:
