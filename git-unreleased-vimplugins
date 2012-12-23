@@ -567,14 +567,14 @@ if ($see == $SEE_GITHUB) {
 }
 else {
     @plugins = get_plugins_from_bundle($vimbundle_dir);
+    # Filter plugins which has a repository
+    # on user's Github account.
+    @plugins = filter_my_repos(\@plugins, $gh_repos);
 }
 unless (@plugins) {
     die "you don't seem to have vim plugins on github.\n";
 }
 
-# Filter plugins which has a repository
-# on user's Github account.
-@plugins = filter_my_repos(\@plugins, $gh_repos);
 msg("vim plugins:") if @plugins;
 msg("  $_->{name}") for @plugins;
 
@@ -662,7 +662,8 @@ But you must have repositories which has the same names
 under vim bundle dir, that is specified to the 1st argument.
 (Pseudo code below)
 
-    $repos = github.get_repos().filter(in vim bundle dir)
+    $repos = github.get_repos()
+                .filter(seems vimplugin)
 
 Default behavior is to see vim bundle dir. (See C<--bundle>)
 
@@ -676,6 +677,7 @@ that is specified to the 1st argument.
 (Pseudo code below)
 
     $repos = vimbundledir.get_repos()
+                .filter(on github)
 
 This is default behavior. (See C<--github> to change)
 
