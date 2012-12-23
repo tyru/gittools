@@ -18,6 +18,7 @@ use Cwd ();
 use File::Find::Rule;
 use Guard qw(guard);
 use IO::Handle;
+use List::MoreUtils qw(first_index);
 
 my $DEBUG_LEVEL = 1;
 
@@ -350,7 +351,8 @@ sub get_blobs_of_vimorg {
 
     # Get blob SHA-1.
     for my $file (get_vim_related_files('.')) {
-        $blob{path2blob($file)} = $file;
+        my $filelist = ($blob{path2blob($file)} ||= []);
+        push @$filelist, $file;
     }
 
     return \%blob;
@@ -363,9 +365,13 @@ sub look_up_latest_commit {
     for my $log (@log) {
         my ($tree, $abbr_tree, $commit, $abbr_commit) = split /\s+/, $log;
         find_blob($tree, sub {
-            my ($sha1) = @_;
+            my ($sha1, $filename) = @_;
             print "\r$name: $abbr_commit(commit)/$abbr_tree(tree)/$sha1(blob)";
-            delete $blob->{$sha1};
+            if (ref($blob->{$sha1}) eq 'ARRAY') {
+                my $idx = first_index { $_ eq $filename } @{ $blob->{$sha1} };
+                delete $blob->{$sha1}[$idx];
+                delete $blob->{$sha1} unless @{ $blob->{$sha1} };
+            }
             unless (%$blob) {
                 # All blobs are matched!
                 # The commit must have same files as $TMP_BRANCH.
@@ -380,16 +386,24 @@ JUMP:
 }
 
 sub find_blob {
-    my ($tree, $sub) = @_;
+    my ($tree, $sub, $_parent_dir) = @_;
 
     for (git_lines('ls-tree', $tree)) {
-        my ($type, $blob, $filename) = m/^\S+\s+(\S+)\s+(\S+)\s+(.+)/;
+        my ($type, $sha1, $filename) = m/^\S+\s+(\S+)\s+(\S+)\s+(.+)/;
         if ($type eq 'blob') {
-            $sub->($blob);
+            # Pass always a fullpath to callback.
+            $filename = catfile($_parent_dir, $filename) if defined $_parent_dir;
+            $sub->($sha1, $filename);
         }
         elsif ($type eq 'tree') {
+            if (defined $_parent_dir) {
+                $_parent_dir = catfile($_parent_dir, $filename);
+            }
+            else {
+                $_parent_dir = $filename;
+            }
             # depth first
-            find_blob($blob, $sub);
+            find_blob($sha1, $sub, $_parent_dir);
         }
     }
 }
