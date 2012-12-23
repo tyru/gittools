@@ -536,7 +536,7 @@ GetOptions(
     'github' => sub { $see = $SEE_GITHUB },
     'bundle' => sub { $see = $SEE_BUNDLE },
     'no-save' => sub { $save_repo_map = 0 },
-) or usage;
+) or usage();
 
 STDOUT->autoflush(1);
 STDERR->autoflush(1);
@@ -544,10 +544,14 @@ STDERR->autoflush(1);
 
 my $vimbundle_dir = shift;
 unless (defined $vimbundle_dir) {
-    die "error: please specify vim bundle dir on your filesystem.\n";
+    warn "error: please specify vim bundle dir on your filesystem.\n\n\n";
+    sleep 1;
+    usage();
 }
 unless (-e $vimbundle_dir) {
-    die "error: github dir does not seem to exist: $vimbundle_dir\n";
+    warn "error: github dir does not seem to exist: $vimbundle_dir\n\n\n";
+    sleep 1;
+    usage();
 }
 chdir $vimbundle_dir or die "$vimbundle_dir: $!";
 
