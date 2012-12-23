@@ -620,11 +620,12 @@ __END__
 
 =head1 NAME
 
-    git-unreleased-vimplugins - NO DESCRIPTION YET
+    git-unreleased-vimplugins - show unreleased vimplugins
 
 
 =head1 SYNOPSIS
 
+    $ git unreleased-vimplugins OPTIONS [vim bundle dir]
 
 =head1 OPTIONS
 
@@ -633,6 +634,68 @@ __END__
 =item -h, --help
 
 Show this help.
+
+=item -q, --quiet
+
+Decrement debug level.
+
+Default debug level is MSG (=1).
+QUIET = 0
+MSG   = 1
+INFO  = 2
+DEBUG = 3
+
+=item -v, --verbose
+
+Increment debug level.
+
+See C<--quiet> about debug level.
+
+=item --github
+
+Get vimplugin names list from your Github account.
+But you must have repositories which has the same names
+under vim bundle dir, that is specified to the 1st argument.
+(Pseudo code below)
+
+    $repos = github.get_repos().filter(in vim bundle dir)
+
+Default behavior is to see vim bundle dir. (See C<--bundle>)
+
+If you combine this option with C<--bundle>,
+latter option is only effective.
+
+=item --bundle
+
+Get vimplugin names list from your vim bundle dir
+that is specified to the 1st argument.
+(Pseudo code below)
+
+    $repos = vimbundledir.get_repos()
+
+This is default behavior. (See C<--github> to change)
+
+If you combine this option with C<--github>,
+latter option is only effective.
+
+=item --no-save
+
+Don't save vimplugin names list mapping
+between repositories of vim bundle dir (C<--bundle>)
+or Github account (C<--github>),
+and repositories of C<http://github.com/vim-scripts>.
+
+By default, this mapping is automatically created
+in your global gitconfig, unless specified this option.
+
+After this mapping is created,
+this script doesn't need to *scan* repositories
+on C<http://github.com/vim-scripts>
+correspond to vimplugin names list.
+so next time, you don't need to wait for a long time.
+
+
+B<...But not implemented even auto-saving feature yet!>
 
 =back
 
