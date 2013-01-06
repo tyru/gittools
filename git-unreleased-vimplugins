@@ -430,7 +430,7 @@ sub get_unreleased_plugins {
 
         # Try to guess also by 'git remote -v' output.
         unless (defined $repo) {
-            my $re = qr{^\S+\s+git://github\.com/vim-scripts/(\S+?)(?:(\.git|\s)};
+            my $re = qr{^\S+\s+git://github\.com/vim-scripts/(\S+?)(?:\.git|\s)};
             my @remote_names = grep m/$re/, git_lines('remote', '-v');
             for (@remote_names) {
                 $repo = find_vimscripts_repo({
