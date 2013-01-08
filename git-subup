@@ -48,8 +48,8 @@ my %failed = (
 unless ($only_summary) {
     my $cwd = Cwd::getcwd();
     for my $path (@path) {
+        my $guard = guard { chdir $cwd };
         chdir $path and do {
-            my $guard = guard { chdir $cwd };
             system qw(git pull origin master);
             # from 'perldoc -f system'
             my $errlist;
