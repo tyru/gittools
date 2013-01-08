@@ -13,6 +13,14 @@ sub usage () {
     pod2usage(-verbose => 2);
 }
 
+sub git_current_branch {
+    my ($branch) = grep /^\*\s+/,
+                    split /\n/,
+                    qx(git branch);
+    $branch =~ s/^\*\s+//;
+    return $branch;
+}
+
 
 my $needhelp;
 my $no_summary;
@@ -43,6 +51,7 @@ if ($pattern ne '') {
 my %failed = (
     execute => [],
     signal  => [],
+    skip    => [],
     other   => [],
 );
 unless ($only_summary) {
@@ -50,22 +59,32 @@ unless ($only_summary) {
     for my $path (@path) {
         my $guard = guard { chdir $cwd };
         chdir $path and do {
-            system qw(git pull origin master);
-            # from 'perldoc -f system'
             my $errlist;
-            if ($? == -1) {
-                $errlist = $failed{execute};
+            my $branch = git_current_branch();
+            if ($branch eq 'master') {
+                system qw(git pull origin master);
+                # from 'perldoc -f system'
+                if ($? == -1) {
+                    $errlist = $failed{execute};
+                }
+                elsif ($? & 127) {
+                    $errlist = $failed{signal};
+                }
+                elsif ($? != 0) {
+                    $errlist = $failed{other};
+                }
+                push @$errlist, +{
+                    path => $path,
+                    status => $?,
+                } if $errlist;
             }
-            elsif ($? & 127) {
-                $errlist = $failed{signal};
+            else {
+                $errlist = $failed{skip};
+                push @$errlist, +{
+                    path => $path,
+                    branch => $branch,
+                }
             }
-            elsif ($? != 0) {
-                $errlist = $failed{other};
-            }
-            push @$errlist, +{
-                path => $path,
-                status => $?,
-            } if $errlist;
         };
     }
 }
@@ -111,6 +130,14 @@ for my $path (@path) {
             printf "  %s (exit status: %d)\n",
                    $failed->{path},
                    ($failed->{status} >> 8);
+        }
+    }
+    if (@{ $failed{skip} }) {
+        print "\n\n------- skipped because of non-master branch -------\n";
+        for my $failed (@{ $failed{skip} }) {
+            printf "  %s (branch: %s)\n",
+                  $failed->{path},
+                  $failed->{branch};
         }
     }
 }
