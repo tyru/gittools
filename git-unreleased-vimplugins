@@ -628,7 +628,7 @@ if ($save_repo_map) {
 # Show unreleased/un-uploaded plugins.
 print "\n\n";
 unless (%$unreleased) {
-    print "All plugins are up to date. nice work!";
+    print "All plugins are up to date. nice work!\n";
 }
 for (map { $unreleased->{$_} } sort keys %$unreleased) {
     if ($_->{upload}) {
