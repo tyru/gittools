@@ -478,7 +478,7 @@ sub get_unreleased_plugins {
 
         # Get blob SHA-1 from github/vim-scripts.
         my $blob = eval { get_blobs_of_vimorg($repo) };
-        if ($@) {
+        if (!defined($blob) || $@) {
             die "error: found a repository for '$orgname' "
               . "but could not fetch blobs: $@\n";
         }
