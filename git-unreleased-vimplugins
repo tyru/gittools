@@ -580,7 +580,7 @@ sub guess_repo_name {
 my $SEE_GITHUB = 0;
 my $SEE_BUNDLE = 1;
 my $see = $SEE_BUNDLE;
-my $save_repo_map = 1;
+my $save_repo_map = 0;    # TODO: Turn on if the feature was implemented.
 GetOptions(
     'h|help' => \&usage,
     'q|quiet' => sub { $DEBUG_LEVEL-- },
