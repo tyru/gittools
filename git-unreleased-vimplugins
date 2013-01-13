@@ -32,6 +32,9 @@ sub usage () {
 sub msg {
     print "@_\n" if $DEBUG_LEVEL >= 1;
 }
+sub msg_n {
+    print "@_"   if $DEBUG_LEVEL >= 1;
+}
 
 sub info {
     print "[info] @_\n" if $DEBUG_LEVEL >= 2;
@@ -381,11 +384,11 @@ sub look_up_latest_commit {
                 if (defined($prev_msg_len) && $prev_msg_len > length($msg)) {
                     $padding = " " x ($prev_msg_len - length($msg));
                 }
-                print "\r${msg}${padding}";
+                msg_n("\r${msg}${padding}");
                 $prev_msg_len = length($msg);
             }
             else {
-                print "$msg\n";
+                msg_n($msg);
             }
             # Find $sha1 from $blob.
             if (ref($blob->{$sha1}) eq 'ARRAY') {
