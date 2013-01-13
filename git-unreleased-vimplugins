@@ -371,6 +371,7 @@ sub look_up_latest_commit {
         my ($tree, $abbr_tree, $commit, $abbr_commit) = split /\s+/, $log;
         find_blob($tree, sub {
             my ($sha1, $filename) = @_;
+            # Print message.
             my $abbr_sha1 = substr($sha1, 0, 7);
             # Too long.
             #my $msg = "$name: $abbr_commit(commit)/$abbr_tree(tree)/$sha1(blob)";
@@ -386,6 +387,7 @@ sub look_up_latest_commit {
             else {
                 print "$msg\n";
             }
+            # Find $sha1 from $blob.
             if (ref($blob->{$sha1}) eq 'ARRAY') {
                 my $idx = first_index { $_ eq $filename } @{ $blob->{$sha1} };
                 delete $blob->{$sha1}[$idx];
