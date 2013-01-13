@@ -681,7 +681,7 @@ __END__
 
 =head1 SYNOPSIS
 
-    $ git unreleased-vimplugins OPTIONS [vim bundle dir]
+    $ git unreleased-vimplugins OPTIONS <vim bundle dir>
 
 =head1 OPTIONS
 
@@ -716,6 +716,13 @@ under vim bundle dir, that is specified to the 1st argument.
 
     $repos = github.get_repos()
                 .filter(seems vimplugin)
+    where
+        seems vimplugin =
+            URL host is (www.)vim.org
+                or
+            language is VimL
+                or
+            has bundle-ready directory hierarchy
 
 Default behavior is to see vim bundle dir. (See C<--bundle>)
 
