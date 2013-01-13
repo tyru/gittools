@@ -117,6 +117,8 @@ sub get_password {
 sub filter_vimplugin_repos {
     my ($gh_repos) = @_;
 
+    # TODO: language is VimL
+    # TODO: repos has bundle-ready dirctory hierarchy
     my @plugins;
     for my $repo (@$gh_repos) {
         next if not defined $repo->{homepage};
