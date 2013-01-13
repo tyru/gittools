@@ -8,16 +8,18 @@ use utf8;
 # no_ignore_case: no ignore case on long option.
 use Getopt::Long qw(:config posix_default gnu_compat bundling no_ignore_case);
 use Pod::Usage;
+use File::Spec::Functions qw(catfile);
+use File::Basename qw(basename);
+use Cwd ();
+use IO::Handle;
+
+# Not in CORE
 use LWP::UserAgent;
 use HTTP::Request;
 use JSON qw(decode_json);
 use URI;
-use File::Spec::Functions qw(catfile);
-use File::Basename qw(basename);
-use Cwd ();
 use File::Find::Rule;
 use Guard qw(guard);
-use IO::Handle;
 use List::MoreUtils qw(first_index);
 
 my $DEBUG_LEVEL = 1;
