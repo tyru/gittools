@@ -363,12 +363,26 @@ sub get_blobs_of_vimorg {
 sub look_up_latest_commit {
     my ($name, $blob) = @_;
     my $the_commit;
+    # TODO: $rewrite_msg = 0 when terminal width has no room to print $msg.
+    my $rewrite_msg = (-t STDOUT);
+    my $prev_msg_len;
     my @log = git_lines('log', '--pretty=format:%T %t %H %h');
     for my $log (@log) {
         my ($tree, $abbr_tree, $commit, $abbr_commit) = split /\s+/, $log;
         find_blob($tree, sub {
             my ($sha1, $filename) = @_;
-            print "\r$name: $abbr_commit(commit)/$abbr_tree(tree)/$sha1(blob)";
+            my $msg = "$name: $abbr_commit(commit)/$abbr_tree(tree)/$sha1(blob)";
+            if ($rewrite_msg) {
+                my $padding = "";
+                if (defined($prev_msg_len) && $prev_msg_len > length($msg)) {
+                    $padding = " " x ($prev_msg_len - length($msg));
+                }
+                print "\r${msg}${padding}";
+                $prev_msg_len = length($msg);
+            }
+            else {
+                print "$msg\n";
+            }
             if (ref($blob->{$sha1}) eq 'ARRAY') {
                 my $idx = first_index { $_ eq $filename } @{ $blob->{$sha1} };
                 delete $blob->{$sha1}[$idx];
