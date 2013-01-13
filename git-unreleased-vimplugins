@@ -371,7 +371,10 @@ sub look_up_latest_commit {
         my ($tree, $abbr_tree, $commit, $abbr_commit) = split /\s+/, $log;
         find_blob($tree, sub {
             my ($sha1, $filename) = @_;
-            my $msg = "$name: $abbr_commit(commit)/$abbr_tree(tree)/$sha1(blob)";
+            my $abbr_sha1 = substr($sha1, 0, 7);
+            # Too long.
+            #my $msg = "$name: $abbr_commit(commit)/$abbr_tree(tree)/$sha1(blob)";
+            my $msg = "$name: $abbr_tree(tree)/$abbr_sha1(blob)";
             if ($rewrite_msg) {
                 my $padding = "";
                 if (defined($prev_msg_len) && $prev_msg_len > length($msg)) {
