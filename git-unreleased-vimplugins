@@ -117,20 +117,30 @@ sub get_password {
 sub filter_vimplugin_repos {
     my ($gh_repos) = @_;
 
-    # TODO: language is VimL
-    # TODO: repos has bundle-ready dirctory hierarchy
-    my @plugins;
-    for my $repo (@$gh_repos) {
-        next if not defined $repo->{homepage};
-        next if $repo->{homepage} =~ /^\s*$/;
+    # URL host is (www.)vim.org
+    my $host_is_vim_org = sub {
+        return 0 unless defined $repo->{homepage};
+        return 0 if $repo->{homepage} =~ /^\s*$/;
         my $homepage = eval { URI->new($repo->{homepage}) };
-        if ($homepage->can('host') &&
-            $homepage->host() =~ /\A(?:www\.)vim\.org\Z/) {
-            push @plugins, $repo;
-        }
-    }
+        return $homepage->can('host') &&
+               $homepage->host() =~ /\A(?:www\.)vim\.org\Z/;
+    };
+    # language is VimL
+    my $lang_is_viml = sub {
+        return 0;    # TODO
+    };
+    # repos has bundle-ready dirctory hierarchy
+    my $has_bundle_dirs = sub {
+        return 0;    # TODO
+    };
 
-    return @plugins;
+    return grep {
+        $host_is_vim_org->($_)
+            or
+        $lang_is_viml->($_)
+            or
+        $has_bundle_dirs->($_)
+    } @$gh_repos;
 }
 
 sub get_github_repos {
