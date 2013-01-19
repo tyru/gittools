@@ -127,7 +127,8 @@ sub filter_vimplugin_repos {
     };
     # language is VimL
     my $lang_is_viml = sub {
-        return 0;    # TODO
+        return defined($repo->{language})
+            && $repo->{language} eq 'VimL';
     };
     # repos has bundle-ready dirctory hierarchy
     my $has_bundle_dirs = sub {
