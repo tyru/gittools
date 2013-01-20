@@ -602,15 +602,15 @@ sub guess_repo_name {
 
 my $SEE_GITHUB = 0;
 my $SEE_BUNDLE = 1;
-my $see = $SEE_BUNDLE;
+my $opt_see = $SEE_BUNDLE;
 my $save_repo_map = 0;    # TODO: Turn on if the feature was implemented.
 my $opt_all = 0;
 GetOptions(
     'h|help' => \&usage,
     'q|quiet' => sub { $DEBUG_LEVEL-- },
     'v|verbose' => sub { $DEBUG_LEVEL++ },
-    'github' => sub { $see = $SEE_GITHUB },
-    'bundle' => sub { $see = $SEE_BUNDLE },
+    'github' => sub { $opt_see = $SEE_GITHUB },
+    'bundle' => sub { $opt_see = $SEE_BUNDLE },
     'no-save' => sub { $save_repo_map = 0 },
     'all' => \$opt_all,
 ) or usage();
@@ -639,7 +639,7 @@ my $gh_repos = get_github_repos($user, $password);
 
 # Get a list of vim plugin names.
 my @plugins;
-if ($see == $SEE_GITHUB) {
+if ($opt_see == $SEE_GITHUB) {
     @plugins = filter_vimplugin_repos($gh_repos);
 }
 else {
