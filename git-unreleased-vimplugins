@@ -483,11 +483,11 @@ sub get_unreleased_plugins {
         unless (defined $repo) {
             $unreleased{$orgname} = sub {
                 $_ = {
-                    name   => $orgname,
+                    github_name => $orgname,
                     upload => 0,
                 };
                 print <<EOM;
-$_->{name}:
+$_->{github_name}:
     Latest commit on vim.org: (not uploaded yet)
 EOM
             };
@@ -514,7 +514,7 @@ EOM
                 msg("$orgname: has unreleased commits.");
                 $unreleased{$orgname} = sub {
                     $_ = {
-                        name => $orgname,
+                        github_name => $orgname,
                         vimorg_name => $repo->{name},
                         upload => 1,
                         commit => $commit,
@@ -523,10 +523,10 @@ EOM
                         user => $user,
                     };
                     print <<EOM;
-$_->{name}:
+$_->{github_name}:
     Latest commit on vim.org: $_->{commit} ($_->{count} commits between the HEADs)
     Repository on vim.org: http://github.com/vim-scripts/$_->{vimorg_name}
-    Repository on github: http://github.com/$_->{user}/$_->{name}
+    Repository on github: http://github.com/$_->{user}/$_->{github_name}
 EOM
                 };
             }
@@ -535,7 +535,7 @@ EOM
                 if ($opt_all) {
                     $unreleased{$orgname} = sub {
                         $_ = {
-                            name => $orgname,
+                            github_name => $orgname,
                             vimorg_name => $repo->{name},
                             upload => 1,
                             commit => $commit,
@@ -544,10 +544,10 @@ EOM
                             user => $user,
                         };
                         print <<EOM;
-$_->{name}:
+$_->{github_name}:
     Latest commit on vim.org: (plugin is up to date)
     Repository on vim.org: http://github.com/vim-scripts/$_->{vimorg_name}
-    Repository on github: http://github.com/$_->{user}/$_->{name}
+    Repository on github: http://github.com/$_->{user}/$_->{github_name}
 EOM
                     };
                 }
@@ -558,7 +558,7 @@ EOM
             if ($opt_all) {
                 $unreleased{$orgname} = sub {
                     $_ = {
-                        name => $orgname,
+                        github_name => $orgname,
                         vimorg_name => $repo->{name},
                         upload => 1,
                         commit => undef,
@@ -567,10 +567,10 @@ EOM
                         user => $user,
                     };
                     print <<EOM;
-$_->{name}:
+$_->{github_name}:
     Latest commit on vim.org: (could not find the same commits)
     Repository on vim.org: http://github.com/vim-scripts/$_->{vimorg_name}
-    Repository on github: http://github.com/$_->{user}/$_->{name}
+    Repository on github: http://github.com/$_->{user}/$_->{github_name}
 EOM
                 };
             }
