@@ -512,6 +512,7 @@ sub get_unreleased_plugins {
                     commit => $commit,
                     abbr_commit => $abbr_commit,
                     count => $count,
+                    user => $user,
                 };
             }
             else {
@@ -672,7 +673,8 @@ for (map { $unreleased->{$_} } sort keys %$unreleased) {
         print <<EOM;
 $_->{name}:
     Latest commit on vim.org: $_->{commit} ($_->{count} commits between the HEADs)
-    Plugin name on vim.org: $_->{vimorg_name}
+    Repository on vim.org: http://github.com/vim-scripts/$_->{vimorg_name}
+    Repository on github: http://github.com/$_->{user}/$_->{name}
 EOM
     }
     else {
