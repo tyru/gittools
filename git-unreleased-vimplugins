@@ -517,6 +517,15 @@ sub get_unreleased_plugins {
             }
             else {
                 msg("$orgname: uploaded plugin on vim.org is up to date.");
+                $unreleased{$orgname} = {
+                    name => $orgname,
+                    vimorg_name => $repo->{name},
+                    upload => 1,
+                    commit => $commit,
+                    abbr_commit => $abbr_commit,
+                    count => 0,
+                    user => $user,
+                };
             }
         }
         else {
@@ -595,6 +604,7 @@ my $SEE_GITHUB = 0;
 my $SEE_BUNDLE = 1;
 my $see = $SEE_BUNDLE;
 my $save_repo_map = 0;    # TODO: Turn on if the feature was implemented.
+my $opt_all = 0;
 GetOptions(
     'h|help' => \&usage,
     'q|quiet' => sub { $DEBUG_LEVEL-- },
@@ -602,6 +612,7 @@ GetOptions(
     'github' => sub { $see = $SEE_GITHUB },
     'bundle' => sub { $see = $SEE_BUNDLE },
     'no-save' => sub { $save_repo_map = 0 },
+    'all' => \$opt_all,
 ) or usage();
 
 STDOUT->autoflush(1);
@@ -670,12 +681,22 @@ unless (%$unreleased) {
 }
 for (map { $unreleased->{$_} } sort keys %$unreleased) {
     if ($_->{upload}) {
-        print <<EOM;
+        if ($_->{count} > 0) {
+            print <<EOM;
 $_->{name}:
     Latest commit on vim.org: $_->{commit} ($_->{count} commits between the HEADs)
     Repository on vim.org: http://github.com/vim-scripts/$_->{vimorg_name}
     Repository on github: http://github.com/$_->{user}/$_->{name}
 EOM
+        }
+        elsif ($opt_all) {
+            print <<EOM;
+$_->{name}:
+    Latest commit on vim.org: (plugin is up to date)
+    Repository on vim.org: http://github.com/vim-scripts/$_->{vimorg_name}
+    Repository on github: http://github.com/$_->{user}/$_->{name}
+EOM
+        }
     }
     else {
         print <<EOM;
@@ -776,6 +797,10 @@ so next time, you don't need to wait for a long time.
 
 
 B<...But not implemented even auto-saving feature yet!>
+
+=item --all
+
+Show also up-to-date vimplugins.
 
 =back
 
