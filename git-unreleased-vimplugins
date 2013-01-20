@@ -448,7 +448,7 @@ sub find_blob {
 }
 
 sub get_unreleased_plugins {
-    my ($plugins, $user) = @_;
+    my ($plugins, $user, $opt_all) = @_;
 
     my %unreleased;
     for my $plugin (@$plugins) {
@@ -481,9 +481,15 @@ sub get_unreleased_plugins {
 
         # Failed to guess github/vim-scripts repository name.
         unless (defined $repo) {
-            $unreleased{$orgname} = {
-                name   => $orgname,
-                upload => 0,
+            $unreleased{$orgname} = sub {
+                $_ = {
+                    name   => $orgname,
+                    upload => 0,
+                };
+                print <<EOM;
+$_->{name}:
+    Latest commit on vim.org: (not uploaded yet)
+EOM
             };
             next;
         }
@@ -505,40 +511,69 @@ sub get_unreleased_plugins {
               . "on vim.org: $abbr_commit");
             my $count = scalar git_lines('log', '--oneline', "$commit..HEAD");
             if ($count > 0) {
-                $unreleased{$orgname} = {
-                    name => $orgname,
-                    vimorg_name => $repo->{name},
-                    upload => 1,
-                    commit => $commit,
-                    abbr_commit => $abbr_commit,
-                    count => $count,
-                    user => $user,
+                msg("$orgname: has unreleased commits.");
+                $unreleased{$orgname} = sub {
+                    $_ = {
+                        name => $orgname,
+                        vimorg_name => $repo->{name},
+                        upload => 1,
+                        commit => $commit,
+                        abbr_commit => $abbr_commit,
+                        count => $count,
+                        user => $user,
+                    };
+                    print <<EOM;
+$_->{name}:
+    Latest commit on vim.org: $_->{commit} ($_->{count} commits between the HEADs)
+    Repository on vim.org: http://github.com/vim-scripts/$_->{vimorg_name}
+    Repository on github: http://github.com/$_->{user}/$_->{name}
+EOM
                 };
             }
             else {
                 msg("$orgname: uploaded plugin on vim.org is up to date.");
-                $unreleased{$orgname} = {
-                    name => $orgname,
-                    vimorg_name => $repo->{name},
-                    upload => 1,
-                    commit => $commit,
-                    abbr_commit => $abbr_commit,
-                    count => 0,
-                    user => $user,
-                };
+                if ($opt_all) {
+                    $unreleased{$orgname} = sub {
+                        $_ = {
+                            name => $orgname,
+                            vimorg_name => $repo->{name},
+                            upload => 1,
+                            commit => $commit,
+                            abbr_commit => $abbr_commit,
+                            count => 0,
+                            user => $user,
+                        };
+                        print <<EOM;
+$_->{name}:
+    Latest commit on vim.org: (plugin is up to date)
+    Repository on vim.org: http://github.com/vim-scripts/$_->{vimorg_name}
+    Repository on github: http://github.com/$_->{user}/$_->{name}
+EOM
+                    };
+                }
             }
         }
         else {
             msg("$orgname: Not found the same commit on vim.org ...");
-            $unreleased{$orgname} = {
-                name => $orgname,
-                vimorg_name => $repo->{name},
-                upload => 1,
-                commit => undef,
-                abbr_commit => undef,
-                count => 0,
-                user => $user,
-            };
+            if ($opt_all) {
+                $unreleased{$orgname} = sub {
+                    $_ = {
+                        name => $orgname,
+                        vimorg_name => $repo->{name},
+                        upload => 1,
+                        commit => undef,
+                        abbr_commit => undef,
+                        count => 0,
+                        user => $user,
+                    };
+                    print <<EOM;
+$_->{name}:
+    Latest commit on vim.org: (could not find the same commits)
+    Repository on vim.org: http://github.com/vim-scripts/$_->{vimorg_name}
+    Repository on github: http://github.com/$_->{user}/$_->{name}
+EOM
+                };
+            }
         }
     }
     return \%unreleased;
@@ -668,7 +703,7 @@ msg("  $_->{name}") for @plugins;
 @plugins = uniq_repos(\@plugins);
 
 # Get unreleased/un-uploaded plugins.
-my $unreleased = get_unreleased_plugins(\@plugins, $user);
+my $unreleased = get_unreleased_plugins(\@plugins, $user, $opt_all);
 
 if ($save_repo_map) {
     for my $name (keys %$unreleased) {
@@ -688,41 +723,11 @@ print "\n\n";
 unless (%$unreleased) {
     print "All plugins are up to date. nice work!\n";
 }
-for (map { $unreleased->{$_} } sort keys %$unreleased) {
-    if (!defined $_->{commit}) {
-        if ($opt_all) {
-            print <<EOM;
-$_->{name}:
-    Latest commit on vim.org: (could not find the same commits)
-    Repository on vim.org: http://github.com/vim-scripts/$_->{vimorg_name}
-    Repository on github: http://github.com/$_->{user}/$_->{name}
-EOM
-        }
-    }
-    elsif ($_->{upload}) {
-        if ($_->{count} > 0) {
-            print <<EOM;
-$_->{name}:
-    Latest commit on vim.org: $_->{commit} ($_->{count} commits between the HEADs)
-    Repository on vim.org: http://github.com/vim-scripts/$_->{vimorg_name}
-    Repository on github: http://github.com/$_->{user}/$_->{name}
-EOM
-        }
-        elsif ($opt_all) {
-            print <<EOM;
-$_->{name}:
-    Latest commit on vim.org: (plugin is up to date)
-    Repository on vim.org: http://github.com/vim-scripts/$_->{vimorg_name}
-    Repository on github: http://github.com/$_->{user}/$_->{name}
-EOM
-        }
-    }
-    else {
-        print <<EOM;
-$_->{name}:
-    Latest commit on vim.org: (not uploaded yet)
-EOM
-    }
+# NOTE: %$unreleased is not empty also when --all was given.
+for my $print_summary (
+    map { $unreleased->{$_} } sort keys %$unreleased
+) {
+    $print_summary->();
 }
 
 
