@@ -530,6 +530,15 @@ sub get_unreleased_plugins {
         }
         else {
             msg("$orgname: Not found the same commit on vim.org ...");
+            $unreleased{$orgname} = {
+                name => $orgname,
+                vimorg_name => $repo->{name},
+                upload => 1,
+                commit => undef,
+                abbr_commit => undef,
+                count => 0,
+                user => $user,
+            };
         }
     }
     return \%unreleased;
@@ -680,7 +689,17 @@ unless (%$unreleased) {
     print "All plugins are up to date. nice work!\n";
 }
 for (map { $unreleased->{$_} } sort keys %$unreleased) {
-    if ($_->{upload}) {
+    if (!defined $_->{commit}) {
+        if ($opt_all) {
+            print <<EOM;
+$_->{name}:
+    Latest commit on vim.org: (could not find the same commits)
+    Repository on vim.org: http://github.com/vim-scripts/$_->{vimorg_name}
+    Repository on github: http://github.com/$_->{user}/$_->{name}
+EOM
+        }
+    }
+    elsif ($_->{upload}) {
         if ($_->{count} > 0) {
             print <<EOM;
 $_->{name}:
